@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: decoy-guard-demo
+
+# Demo credentials only. A real bank lets each customer register their own duress PIN.
+demo:
+  real-pin: "1234"
+  duress-pin: "4321"

@@ -1,0 +1,56 @@
+spec:
+  id: DG-001
+  title: Duress session routing
+  status: implemented
+  version: 0.1.0-SNAPSHOT
+  owner: Felipe Martins
+  human_doc: docs/specs/DG-001-duress-session-routing.md
+modules[3]: decoy-guard-core,decoy-guard-spring-boot-starter,decoy-guard-demo
+stack:
+  java: 21
+  spring_boot: 4.1.2
+  build: maven
+goals[4]: route calls per session to real or decoy implementation transparently,decoys never injectable by mistake,exactly one silent alert per activation,storage and alert components replaceable
+non_goals[3]: device risk signal detection,durable storage implementations,response time shaping
+functional[10]{id,priority,requirement}:
+  FR-01,must,"session mode is NORMAL or DURESS; unknown or anonymous sessions are NORMAL"
+  FR-02,must,"DuressActivator.activate is idempotent; first trigger and time are kept"
+  FR-03,must,"activating a NORMAL session publishes exactly one SilentAlert"
+  FR-04,must,"@Decoy bean stands in for all its interfaces or only those listed"
+  FR-05,must,"real beans of routed interfaces are proxied; DURESS calls reach the decoy, NORMAL calls reach the real bean"
+  FR-06,must,"@Decoy beans are never autowire candidates, even with the starter disabled"
+  FR-07,must,"two @Decoy beans for one interface fail startup"
+  FR-08,must,"mode resolved once per HTTP request and cleared at the end"
+  FR-09,should,"decoy transfers recorded as HeldTransaction with typed destination"
+  FR-10,should,"decoy-guard.enabled=false disables routing, filter and default SPI beans"
+non_functional[4]{id,requirement}:
+  NFR-01,"mode never written to any response (headers, body, cookies)"
+  NFR-02,"failing alert channel never fails the triggering request"
+  NFR-03,"decoy-guard-core has no runtime dependencies"
+  NFR-04,"Java 21 and Spring Boot 4.1"
+components[7]{name,module,role}:
+  DuressContext,core,"record with sessionId, mode, trigger, activatedAt"
+  DuressContextHolder,core,"ThreadLocal binding of the current context"
+  DuressActivator,core,"activates session and publishes one alert, swallowing alert failures"
+  DuressContextFilter,starter,"servlet filter resolving the context per request"
+  DecoyRoutingPostProcessor,starter,"BFPP hides decoys; BPP wraps real beans in routing JDK proxies"
+  SessionIdExtractor,starter,"SPI; default reads bearer token"
+  DecoyGuardAutoConfiguration,starter,"wires defaults with ConditionalOnMissingBean"
+spis[4]{name,default,production_hint}:
+  DuressSessionRegistry,InMemoryDuressSessionRegistry,"Redis or database shared by all instances"
+  HeldTransactionStore,InMemoryHeldTransactionStore,"durable store read by the fraud team"
+  SilentAlertPublisher,LoggingSilentAlertPublisher,"fraud queue or trusted contact channel"
+  SessionIdExtractor,BearerTokenSessionIdExtractor,"JWT claim or session cookie"
+acceptance[7]{id,criterion,test}:
+  AC-01,"real PIN shows real balance",DuressFlowTest
+  AC-02,"duress PIN shows decoy balance",DuressFlowTest
+  AC-03,"duress Pix returns CONCLUIDO, lowers decoy balance, real balance unchanged, visible to fraud desk",DuressFlowTest
+  AC-04,"Pix above decoy balance fails exactly like the real account",DuressFlowTest
+  AC-05,"balance response has same fields in both modes",DuressFlowTest
+  AC-06,"enabled=false starts and duress context reaches real bean",DecoyRoutingTest
+  AC-07,"two decoys for one interface fail startup",DecoyRoutingTest
+rules[4]:
+  inject routed services by interface never by concrete class
+  real and decoy must share DTOs exceptions and id formats
+  never expose session mode to the client
+  decoy must keep working when the alert channel fails
