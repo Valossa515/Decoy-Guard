@@ -1,0 +1,104 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/response-time-parity.contract.toon
+# Feature: .agent/specs/features/response-time-parity.spec.toon (FT-003)
+# Decisions: .agent/plans/response-time-parity-architecture.md
+
+contract:
+  feature-ref: FT-003
+  version: 0.1.0-SNAPSHOT
+
+layers:
+  core:
+    files[5]{path,action,description}:
+      decoy-guard-core/src/main/java/io/github/valossa515/decoyguard/core/CallOutcome.java,create,Enum RETURNED or THREW
+      decoy-guard-core/src/main/java/io/github/valossa515/decoyguard/core/LatencyProfile.java,create,SPI with record(operation outcome elapsed) and sample(operation outcome) returning Optional<Duration>
+      decoy-guard-core/src/main/java/io/github/valossa515/decoyguard/core/InMemoryLatencyProfile.java,create,Default with one bounded ring buffer per operation and outcome and a minimum number of observations before sampling
+      decoy-guard-core/src/main/java/io/github/valossa515/decoyguard/core/Sleeper.java,create,Functional interface sleep(Duration) so tests never sleep for real
+      decoy-guard-core/src/main/java/io/github/valossa515/decoyguard/core/LatencyShaper.java,create,observe(operation call) times and records a real call. shape(operation call) runs the decoy then waits for the remainder of a sampled or fallback target. Swallows profile failures
+  starter:
+    files[3]{path,action,description}:
+      decoy-guard-spring-boot-starter/src/main/java/io/github/valossa515/decoyguard/spring/LatencyShapingProperties.java,create,ConfigurationProperties decoy-guard.latency-shaping with enabled and window-size and min-observations and fallback-min and fallback-max and validation
+      decoy-guard-spring-boot-starter/src/main/java/io/github/valossa515/decoyguard/spring/DecoyGuardAutoConfiguration.java,modify,Nested LatencyConfiguration with LatencyProfile (ConditionalOnMissingBean) and LatencyShaper beans behind both enabled properties
+      decoy-guard-spring-boot-starter/src/main/java/io/github/valossa515/decoyguard/spring/DecoyRoutingPostProcessor.java,modify,Interceptor resolves LatencyShaper lazily and delegates NORMAL calls to observe and DURESS calls to shape. Unchanged behavior when no shaper bean exists
+  demo:
+    files[3]{path,action,description}:
+      decoy-guard-demo/src/main/java/io/github/valossa515/decoyguard/demo/account/CoreBankingLatency.java,create,Component that sleeps a random time inside demo.core-banking-latency.min and max
+      decoy-guard-demo/src/main/java/io/github/valossa515/decoyguard/demo/account/RealAccountService.java,modify,One simulated hop per method outside the synchronized block and a second hop for an accepted Pix
+      decoy-guard-demo/src/main/resources/application.yml,modify,demo.core-banking-latency.min 120ms and max 350ms
+  docs:
+    files[5]{path,action,description}:
+      README.md,modify,Roadmap item checked and a configuration section for decoy-guard.latency-shaping
+      docs/threat-model.md,modify,Indistinguishability status and the response time limitation updated
+      .agent/project-reference.md,modify,New classes in the class map
+      .agent/decisions.md,modify,ADR-010
+      .agent/plans/response-time-parity-tests.md,create,Test plan
+
+migrations[0]:
+
+dependencies:
+  uses[4]:
+    DuressContextHolder (existing)
+    DecoyRoutingPostProcessor routing interceptor (existing)
+    DecoyGuardAutoConfiguration conditional wiring (existing)
+    System.Logger in core (existing convention)
+  introduces[0]:
+
+configuration[7]{property,type,default,notes}:
+  decoy-guard.latency-shaping.enabled,boolean,true,Off also when decoy-guard.enabled is false
+  decoy-guard.latency-shaping.window-size,int,500,At least 1
+  decoy-guard.latency-shaping.min-observations,int,20,At least 0
+  decoy-guard.latency-shaping.fallback-min,Duration,150ms,Not negative and not above fallback-max
+  decoy-guard.latency-shaping.fallback-max,Duration,400ms,
+  demo.core-banking-latency.min,Duration,120ms,Demo only
+  demo.core-banking-latency.max,Duration,350ms,Demo only
+
+error-handling[4]{case,behavior}:
+  LatencyProfile throws on record,Logged at WARNING and the real result is returned
+  LatencyProfile throws on sample,Logged at WARNING and the fallback range is used
+  Wait interrupted,Interrupt flag restored and the decoy result returned at once
+  Invalid latency properties,Startup fails with IllegalArgumentException
+
+test-strategy:
+  unit-tests:
+    - target: InMemoryLatencyProfile
+      scenarios[4]:
+        window-is-bounded-and-keeps-most-recent
+        empty-below-minimum-observations
+        operations-and-outcomes-are-independent
+        invalid-sizes-are-rejected
+    - target: LatencyShaper
+      scenarios[8]:
+        observe-records-returned-and-threw
+        shape-waits-for-the-remainder-of-the-sampled-target
+        shape-uses-fallback-range-when-profile-is-empty
+        shape-delays-and-rethrows-the-same-exception-with-the-threw-bucket
+        shape-never-records
+        slow-decoy-gets-no-wait
+        profile-failure-does-not-fail-observe-or-shape
+        interrupted-wait-restores-the-flag-and-returns
+  integration-tests:
+    - target: DecoyGuardAutoConfiguration and DecoyRoutingPostProcessor
+      type: application-context-runner
+      scenarios[6]:
+        normal-call-is-observed-and-not-delayed
+        duress-call-is-shaped
+        shaping-disabled-by-property-keeps-routing
+        starter-disabled-registers-no-latency-beans
+        user-latency-profile-replaces-the-default
+        invalid-properties-fail-startup
+    - target: Demo account API
+      type: mockmvc
+      scenarios[3]:
+        balance-and-pix-take-comparable-time-in-both-sessions
+        rejected-pix-is-identical-and-comparable-in-both-sessions
+        responses-have-the-same-fields-and-headers
+  excluded[2]{target,reason}:
+    CallOutcome and Sleeper,No logic
+    CoreBankingLatency,Demo stand-in exercised through the demo MockMvc tests
+
+rules-check[5]{rule,how}:
+  Mode never observable by the client,Nothing is written to the response and the only log line is a server-side warning without the mode. The wait closes the timing gap
+  Real and decoy share DTOs,No routed interface change and the decoy exception is rethrown unchanged
+  Decoy beans never injectable,Untouched. Only LatencyShaper is looked up from the bean factory
+  Alert failures never fail the request,Untouched. Profile failures are swallowed the same way
+  New storage is an SPI,LatencyProfile in core with InMemoryLatencyProfile registered with ConditionalOnMissingBean

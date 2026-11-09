@@ -69,18 +69,24 @@ None yet. Every storage and delivery concern is an SPI with an in-memory or logg
 | `InMemoryHeldTransactionStore` | default | Per-session `CopyOnWriteArrayList`. |
 | `SilentAlert` | record | sessionId, trigger, raisedAt. Only built from a DURESS context. |
 | `SilentAlertPublisher` | SPI | `publish(SilentAlert)`. Must not block the request for long. |
+| `CallOutcome` | enum | `RETURNED` or `THREW`. Latency is observed per outcome. |
+| `LatencyProfile` | SPI | `record(operation, outcome, elapsed)`, `sample(operation, outcome)` (empty while there are too few observations). |
+| `InMemoryLatencyProfile` | default | Bounded ring buffer per operation and outcome. Samples one stored duration at random. Single instance only. |
+| `Sleeper` | functional interface | `sleep(Duration)`, so tests never sleep for real. |
+| `LatencyShaper` | class | `observe` times and records a real call. `shape` runs the decoy and waits for the rest of a sampled (or fallback) target. Swallows profile failures (FT-003). |
 
 ### Starter (`decoy-guard-spring-boot-starter`)
 
 | Class | Kind | Responsibility |
 |-------|------|----------------|
 | `Decoy` | annotation | Marks a bean as the decoy for all its interfaces, or only those listed in `value()`. |
-| `DecoyRoutingPostProcessor` | BFPP + BPP | Hides `@Decoy` beans from autowiring, maps interface to decoy, rejects two decoys per interface, wraps real beans in interface-based JDK proxies that route per call. |
+| `DecoyRoutingPostProcessor` | BFPP + BPP | Hides `@Decoy` beans from autowiring, maps interface to decoy, rejects two decoys per interface, wraps real beans in interface-based JDK proxies that route per call. With a `LatencyShaper` bean, NORMAL calls go through `observe` and DURESS calls through `shape`. |
 | `DuressContextFilter` | servlet filter | Resolves the mode once per request, binds it, clears it in `finally`. Writes nothing to the response. |
 | `SessionIdExtractor` | SPI | Reads the session id from the request. |
 | `BearerTokenSessionIdExtractor` | default | Uses the opaque bearer token as the session id. |
 | `LoggingSilentAlertPublisher` | default | Logs the alert at WARN (trigger and time only). |
-| `DecoyGuardAutoConfiguration` | auto-config | Always registers the post processor. Registers SPI defaults with `@ConditionalOnMissingBean` and the filter (order `HIGHEST_PRECEDENCE + 100`) when `decoy-guard.enabled` is not false. |
+| `LatencyShapingProperties` | properties record | `decoy-guard.latency-shaping.*`: enabled, window-size, min-observations, fallback-min, fallback-max. Invalid values fail startup. |
+| `DecoyGuardAutoConfiguration` | auto-config | Always registers the post processor. Registers SPI defaults with `@ConditionalOnMissingBean` and the filter (order `HIGHEST_PRECEDENCE + 100`) when `decoy-guard.enabled` is not false. Registers `LatencyProfile` and `LatencyShaper` unless `decoy-guard.latency-shaping.enabled` is false. |
 
 ### Demo (`decoy-guard-demo`)
 
@@ -89,7 +95,8 @@ None yet. Every storage and delivery concern is an SPI with an in-memory or logg
 | `DemoApplication` | Spring Boot entry point. |
 | `ClockConfiguration` | `Clock` bean in `America/Sao_Paulo`. |
 | `account.AccountService` | Routed interface plus shared DTOs: `Balance`, `StatementEntry`, `PixRequest`, `PixReceipt`. |
-| `account.RealAccountService` | Real account, balance 48,750.32, mutates balance and statement on Pix. |
+| `account.RealAccountService` | Real account, balance 48,750.32, mutates balance and statement on Pix. One simulated hop per call, two for an accepted Pix. |
+| `account.CoreBankingLatency` | Sleeps a random time inside `demo.core-banking-latency.min` and `max`. Gives the real service a response time for the decoy to match. |
 | `account.DecoyAccountService` | `@Decoy`. Balance 312.47 minus held Pix, decoy statement, Pix stored as `HeldTransaction`. |
 | `account.EndToEndIds` | Pix-shaped ids (E + 31 alphanumerics), shared by real and decoy. |
 | `account.InsufficientFundsException` | "Saldo insuficiente", thrown by both implementations. |
@@ -118,7 +125,7 @@ None yet. Every storage and delivery concern is an SPI with an in-memory or logg
 
 ## 5. Database Schema
 
-No database. State lives behind the SPIs (`DuressSessionRegistry`, `HeldTransactionStore`) with in-memory defaults. Redis and JDBC implementations are on the roadmap.
+No database. State lives behind the SPIs (`DuressSessionRegistry`, `HeldTransactionStore`, `LatencyProfile`) with in-memory defaults. Redis and JDBC implementations are on the roadmap.
 
 ### Enums
 
@@ -126,6 +133,7 @@ No database. State lives behind the SPIs (`DuressSessionRegistry`, `HeldTransact
 |------|--------|---------|
 | `SessionMode` | `NORMAL`, `DURESS` | `DuressContext.mode` |
 | `ActivationTrigger` | `DURESS_CREDENTIAL`, `RISK_SIGNAL`, `MANUAL` | `DuressContext.trigger`, `SilentAlert.trigger` |
+| `CallOutcome` | `RETURNED`, `THREW` | `LatencyProfile` keys |
 
 ---
 

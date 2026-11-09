@@ -1,0 +1,93 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/response-time-parity.spec.toon
+# Plan (human doc): .agent/plans/response-time-parity.md
+# Acceptance: .agent/specs/acceptance/response-time-parity.acceptance.toon
+
+feature:
+  id: FT-003
+  name: Response time parity
+  version: 0.1.0-SNAPSHOT
+  status: implemented
+  owner: Felipe Martins
+
+modules[3]: decoy-guard-core,decoy-guard-spring-boot-starter,decoy-guard-demo
+
+stack:
+  java: 21
+  spring_boot: 4.1.2
+  build: maven
+
+requirement:
+  summary: A decoy call skips core banking so it answers faster than a real call and an attacker watching the screen can notice. A call on a routed interface in a DURESS session must take about as long as the same call takes in NORMAL sessions. The library observes the duration of real calls per routed method and outcome and holds each decoy call until a duration drawn from those observations has passed. Real customers are never slowed down.
+  actor: Account holder under coercion whose screen is watched by the attacker and the bank developer integrating the starter
+  trigger: Any call on a routed interface (a method of an interface that has a @Decoy implementation)
+
+goals[4]:
+  A decoy call is not noticeably faster than the real call it stands in for
+  Real customers are never slowed down
+  Latency is learned from real traffic with a configured fallback for cold start
+  The demo shows both phones responding at the same pace
+
+non-goals[5]:
+  Shaping anything outside routed interface calls (login or static resources or network)
+  Making a decoy faster when it is slower than the real call
+  Sharing observations between application instances (future spec with Redis and JDBC)
+  Non-blocking delay for reactive pipelines or @Async (future spec)
+  Resisting statistical timing analysis over thousands of calls
+
+inputs[6]{name,type,required,constraints}:
+  routed interface call,method invocation,true,Any method of an interface that has a @Decoy implementation
+  session mode,SessionMode,true,Read from the current DuressContext. NORMAL calls are observed and DURESS calls are shaped
+  decoy-guard.latency-shaping.enabled,boolean,false,Defaults to true. Ignored when decoy-guard.enabled is false
+  decoy-guard.latency-shaping.window-size,int,false,Defaults to 500 observations per method and outcome. Must be at least 1
+  decoy-guard.latency-shaping.min-observations,int,false,Defaults to 20. Below it the fallback range is used
+  decoy-guard.latency-shaping.fallback-min and fallback-max,Duration,false,Default to 150ms and 400ms. Minimum must not be negative or exceed maximum
+
+outputs:
+  success:
+    description: The decoy result is returned unchanged after the target duration has passed. No header or field or cookie or client-visible log line is added. NORMAL calls return as before with no delay.
+    status: 200
+    body[1]{name,type,value}:
+      routed method result,unchanged,Same DTO the decoy produced
+  errors[2]{code,status,when}:
+    INSUFFICIENT_FUNDS,422,Pix above the available balance. Same status and message in both modes and delayed like a rejected real Pix
+    UNAUTHORIZED,401,No open session on /account. Unchanged and not shaped because it happens before any routed call
+
+startup-failures[1]{code,when}:
+  INVALID_LATENCY_CONFIG,window-size below 1 or min-observations below 0 or fallback minimum above maximum
+
+business-rules[10]{id,source,priority,rule}:
+  BR-001,FR-01,must,The duration of every call on a routed interface in a NORMAL session is observed per routed method and per outcome (returned or threw)
+  BR-002,FR-02,must,Observations are kept in a bounded window of the most recent ones per method and outcome (default 500)
+  BR-003,FR-03,must,A call on a routed interface in a DURESS session does not complete before a target duration sampled from the observations of the same method and the same outcome
+  BR-004,FR-04,must,While a method and outcome has fewer than the minimum number of observations (default 20) the target is drawn from the configured fallback range (default 150ms to 400ms)
+  BR-005,FR-05,must,Shaping never changes what the decoy returned or threw. An exception is rethrown unchanged after the wait
+  BR-006,FR-06,must,Calls in NORMAL sessions are never delayed
+  BR-007,FR-07,must,Calls in DURESS sessions are never recorded as observations
+  BR-008,FR-08,must,When the decoy itself took longer than the target no delay is added
+  BR-009,FR-09,should,decoy-guard.latency-shaping.enabled=false turns shaping and observation off and so does decoy-guard.enabled=false
+  BR-010,FR-10,should,The demo real account simulates core banking latency so both phones respond at the same pace
+
+non-functional[5]{id,requirement}:
+  NFR-01,Shaping adds no header or field or cookie or client-visible log line. The mode stays unobservable
+  NFR-02,decoy-guard-core keeps zero runtime dependencies and the observation store is an SPI in core with an in-memory default
+  NFR-03,Observation overhead on a NORMAL call is negligible (two clock reads and one bounded write)
+  NFR-04,A failure while observing or sampling never fails the request. The call proceeds without shaping
+  NFR-05,Core and starter tests do not sleep for real. Time and waiting are injected
+
+rules[4]:
+  Never expose the session mode to the client
+  Real and decoy must share DTOs and exceptions and id formats
+  Every new storage concern is an SPI in core with an in-memory default
+  Routed services are injected by interface and never by concrete class
+
+assumptions[6]:
+  Latency source is option A (learned from real calls) chosen by Felipe on 2026-11-09. Options B (configured only) and C (common floor) are described in the plan
+  Observations are split by outcome because a rejected call is usually faster than an accepted one
+  Fallback range 150ms to 400ms and minimum of 20 observations and window of 500 are starting defaults and can be tuned
+  The demo simulates core banking latency of 120ms to 350ms in RealAccountService because the real service is in memory
+  Parity is per routed call. A controller that makes a different number of routed calls per mode is out of scope
+  Class names and the blocking wait are defined in the contract and recorded in ADR-010
+
+batches[1]{id,scope,estimate}:
+  BATCH-01,SPI and in-memory default in core plus shaping in the starter plus demo latency and tests and docs,1-2 days

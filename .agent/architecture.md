@@ -21,6 +21,7 @@
 | `HeldTransactionStore` | core | `InMemoryHeldTransactionStore` | Durable store read by the fraud team |
 | `SilentAlertPublisher` | core | `LoggingSilentAlertPublisher` (starter) | Fraud queue, trusted contact notification |
 | `SessionIdExtractor` | starter | `BearerTokenSessionIdExtractor` | JWT claim, session cookie |
+| `LatencyProfile` | core | `InMemoryLatencyProfile` | Store shared by all instances |
 
 Every default is registered with `@ConditionalOnMissingBean`, so an application bean replaces it.
 

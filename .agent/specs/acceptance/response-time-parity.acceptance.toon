@@ -1,0 +1,29 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/response-time-parity.acceptance.toon
+# Plan (human doc): .agent/plans/response-time-parity.md
+
+acceptance:
+  feature-ref: FT-003
+  version: 0.1.0-SNAPSHOT
+
+criteria[11]{id,scenario,given,when,then,priority,business-rule-ref,test}:
+  AC-01,Normal calls are not delayed,A routed interface with a decoy and a NORMAL context,The routed method is called,The real bean answers and no wait is requested and one observation is recorded for that method,must-have,BR-006,LatencyShapingTest.normalCallIsObservedAndNotDelayed and LatencyShaperTest.observeRecordsTheDurationAndAddsNoDelay
+  AC-02,Duress call waits for the sampled target,The method has at least the minimum observations all of 200ms and a DURESS context,The routed method is called and the decoy answers at once,The decoy result is returned unchanged after a wait that completes 200ms in total,must-have,BR-003,LatencyShapingTest.duressCallWaitsForTheSampledTarget and LatencyShaperTest.shapeWaitsForTheRemainderOfTheSampledTarget
+  AC-03,Fallback before enough observations,The method has fewer observations than the minimum and a DURESS context,The routed method is called,The total duration falls inside the configured fallback range,must-have,BR-004,LatencyShapingTest.duressCallUsesTheFallbackRangeBeforeEnoughObservations and InMemoryLatencyProfileTest.emptyBelowTheMinimumNumberOfObservations
+  AC-04,Decoy exception is delayed and unchanged,Failed real calls of the method were observed at 80ms and successful ones at 300ms and a DURESS context,The decoy throws InsufficientFundsException,The same exception is rethrown after 80ms in total and not 300ms,must-have,BR-005,LatencyShapingTest.decoyExceptionIsDelayedLikeAFailedRealCallAndRethrownUnchanged
+  AC-05,Duress calls are not observed,A DURESS context,The routed method is called several times,The number of observations for that method does not change,must-have,BR-007,LatencyShapingTest.duressCallsAreNotObserved and LatencyShaperTest.shapeNeverRecords
+  AC-06,Slow decoy gets no extra delay,The sampled target is 100ms and the decoy takes 150ms,The routed method is called in a DURESS context,No wait is requested,must-have,BR-008,LatencyShapingTest.slowDecoyGetsNoExtraDelay
+  AC-07,Window is bounded,A window size of 3,Five durations are recorded for one method and outcome,Only the three most recent are kept and other methods and outcomes are unaffected,must-have,BR-002,InMemoryLatencyProfileTest.windowIsBoundedAndKeepsTheMostRecent and operationsAndOutcomesAreIndependent
+  AC-08,Shaping can be disabled,decoy-guard.latency-shaping.enabled=false,Routed methods are called in NORMAL and DURESS contexts,Routing still works and there is no wait and no observation,should-have,BR-009,LatencyShapingTest.shapingDisabledByPropertyKeepsRouting and starterDisabledRegistersNoLatencyBeans
+  AC-09,Latency store failure does not fail the call,A latency store that throws on record and on sample,Routed methods are called in NORMAL and DURESS contexts,Both calls return their normal result,must-have,BR-001,LatencyShapingTest.latencyProfileFailureDoesNotFailTheCall and LatencyShaperTest.failingProfileNeverFailsTheCall
+  AC-10,Demo sessions respond at the same pace,The demo runs with simulated core banking latency and a normal and a duress session are open,Both read the balance and send a Pix several times,The median duration of the duress calls is within tolerance of the normal ones and the responses have the same fields and headers,must-have,BR-010,ResponseTimeParityTest.balanceAndPixTakeComparableTimeInBothSessions and responsesHaveTheSameFieldsAndHeaders
+  AC-11,Rejected Pix looks the same in both modes,The demo runs and a normal and a duress session are open,Both send a Pix above the balance,Both return 422 with the same body and INSUFFICIENT_FUNDS is not answered faster in the duress session beyond tolerance,must-have,BR-005,ResponseTimeParityTest.rejectedPixIsIdenticalAndComparableInBothSessions
+
+coverage[3]{requirements,test}:
+  AC-01 to AC-06 and AC-08 and AC-09,LatencyShapingTest (starter ApplicationContextRunner with fake time) and LatencyShaperTest (core)
+  AC-07,InMemoryLatencyProfileTest (core)
+  AC-10 and AC-11,ResponseTimeParityTest (demo MockMvc)
+
+assumptions[2]:
+  The test plan is .agent/plans/response-time-parity-tests.md
+  UNAUTHORIZED is unchanged by this feature and stays covered by FT-001 tests

@@ -41,7 +41,7 @@ A legitimate account holder, typically elderly, is coerced into using their own 
 
 | Goal | Mechanism | Status |
 |---|---|---|
-| Indistinguishability | Real and decoy share the same interface, DTOs, exceptions and receipt id format; the filter never writes the mode to the response | Partial: timing not shaped yet |
+| Indistinguishability | Real and decoy share the same interface, DTOs, exceptions and receipt id format; the filter never writes the mode to the response; decoy calls are held for a duration learned from real calls of the same method and outcome | Done per routed call, see the response time limitation |
 | No real loss | Duress calls are routed to the decoy, which only records a `HeldTransaction` | Done in the demo |
 | Plausibility | Decoy balance minus held transfers; decoy statement includes them | Done in the demo |
 | Out-of-band alert | `DuressActivator` raises one `SilentAlert` per activation through the `SilentAlertPublisher` SPI | SPI done, real channels pending |
@@ -51,7 +51,7 @@ A legitimate account holder, typically elderly, is coerced into using their own 
 
 * **The receiving side is the weak spot.** The Pix never arrives, so an attacker with a partner checking the destination account will eventually notice. The decoy buys time for the alert to work; it does not make the deception permanent. Possible mitigation: show the transfer as "em processamento" with a believable delay, mirroring how real Pix sometimes stalls in anti-fraud review.
 * **Escalation risk.** If the attacker realizes they were fooled while still with the victim, the victim could be harmed. This is the strongest argument for perfect indistinguishability and for alerting a trusted contact quickly.
-* **Response time.** Decoy calls skip core banking and are faster than real ones. Timing is observable, so the decoy should eventually add latency shaped like the real backend.
+* **Response time.** Decoy calls skip core banking, so each one is held for a duration sampled from recent real calls of the same method and outcome (FT-003). What remains: right after startup a configured fallback range is used until enough real calls were seen, observations are per instance, a decoy slower than the real service is not corrected, parity is per routed call and not per request, and login is not shaped. An attacker who measures thousands of calls could still tell the distributions apart, which is beyond someone watching a screen.
 * **Cognitive load.** A frightened user may not remember a second PIN. Risk signals (active call during a transfer, screen mirroring, remote access apps) should be able to activate duress mode without any action from the user.
 * **Thread-bound context.** The mode is bound to the request thread. Work moved to other threads (`@Async`, reactive pipelines) must propagate `DuressContext` explicitly.
 * **Data consistency across channels.** Push notifications, SMS, e-mail and internet banking must also respect the decoy, or the attacker can cross-check.

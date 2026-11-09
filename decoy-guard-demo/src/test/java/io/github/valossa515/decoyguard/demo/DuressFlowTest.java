@@ -18,7 +18,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+// Functional test: the simulated core banking latency and the decoy fallback are zero so it
+// stays fast. Response time parity is covered by ResponseTimeParityTest.
+@SpringBootTest(properties = {
+        "demo.core-banking-latency.min=0ms",
+        "demo.core-banking-latency.max=0ms",
+        "decoy-guard.latency-shaping.fallback-min=0ms",
+        "decoy-guard.latency-shaping.fallback-max=0ms"
+})
 @AutoConfigureMockMvc
 class DuressFlowTest {
 

@@ -92,6 +92,21 @@ Every storage and alert component is an SPI with an in-memory default you are ex
 | `HeldTransactionStore` | in memory | durable store read by the fraud team |
 | `SilentAlertPublisher` | application log | fraud queue, trusted contact notification |
 | `SessionIdExtractor` | bearer token | JWT claim, session cookie |
+| `LatencyProfile` | in memory | store shared by all instances |
+
+### Response time parity
+
+A decoy skips core banking, so it would answer faster than the real service, and an attacker watching the screen could notice. The routing proxy times every real call per method and per outcome (returned or threw) and holds each decoy call until a duration drawn from those observations has passed. Real calls are never delayed.
+
+| Property | Default | Meaning |
+|---|---|---|
+| `decoy-guard.latency-shaping.enabled` | `true` | Turns observation and shaping off when `false` |
+| `decoy-guard.latency-shaping.window-size` | `500` | Most recent real durations kept per method and outcome |
+| `decoy-guard.latency-shaping.min-observations` | `20` | Observations needed before they replace the fallback range |
+| `decoy-guard.latency-shaping.fallback-min` | `150ms` | Lower bound of the decoy duration right after startup |
+| `decoy-guard.latency-shaping.fallback-max` | `400ms` | Upper bound of that duration |
+
+Set the fallback range to the typical latency of your backend. Three limits to keep in mind: the wait blocks the request thread for the length of a real call, a decoy that is slower than the real service is not made faster, and parity is per routed call, so a controller should make the same routed calls in both modes.
 
 ## Modules
 
@@ -137,11 +152,14 @@ curl -s "localhost:8080/fraud-desk/alerts?session=$TOKEN"
 
 Repeat with PIN `1234` to see the real account (balance 48,750.32).
 
+The demo's real account simulates the hop to core banking (`demo.core-banking-latency`, 120 to 350 ms), so you can see both sessions answer at the same pace.
+
 ## Documentation
 
 * [Threat model](docs/threat-model.md): what this protects, what it does not, and why
 * [FT-001 Duress session routing](.agent/plans/duress-session-routing.md): first spec (plan), with its [feature spec](.agent/specs/features/duress-session-routing.spec.toon) and [acceptance criteria](.agent/specs/acceptance/duress-session-routing.acceptance.toon)
 * [FT-002 Mobile-style front end](.agent/plans/mobile-front-end.md): plan, with its [feature spec](.agent/specs/features/mobile-front-end.spec.toon), [acceptance criteria](.agent/specs/acceptance/mobile-front-end.acceptance.toon) and [contract](.agent/specs/contracts/mobile-front-end.contract.toon)
+* [FT-003 Response time parity](.agent/plans/response-time-parity.md): plan, with its [feature spec](.agent/specs/features/response-time-parity.spec.toon), [acceptance criteria](.agent/specs/acceptance/response-time-parity.acceptance.toon), [contract](.agent/specs/contracts/response-time-parity.contract.toon) and [architecture notes](.agent/plans/response-time-parity-architecture.md)
 * [Agent context](.agent/SKILLS.md): project context and conventions for AI coding agents, following [SDD](https://github.com/valossa515/sdd)
 
 ## Roadmap
@@ -150,7 +168,7 @@ Repeat with PIN `1234` to see the real account (balance 48,750.32).
 - [x] Spring Boot starter with `@Decoy` routing
 - [x] Demo bank API with held Pix and fraud desk view
 - [x] Mobile-style web front end showing both sessions side by side
-- [ ] Response time parity (decoy latency shaped like the real backend)
+- [x] Response time parity (decoy latency shaped like the real backend)
 - [ ] Redis `DuressSessionRegistry` and JDBC `HeldTransactionStore`
 - [ ] Risk signals: active phone call, screen mirroring, remote access apps (Android module)
 - [ ] Trusted contact notification channel

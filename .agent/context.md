@@ -62,20 +62,20 @@ Full document: [docs/threat-model.md](../docs/threat-model.md). Read it before c
 
 | Goal | Mechanism | Status |
 |------|-----------|--------|
-| Indistinguishability | Shared interface, DTOs, exceptions and receipt id format. The filter never writes the mode to the response. | Partial: timing not shaped yet |
+| Indistinguishability | Shared interface, DTOs, exceptions and receipt id format. The filter never writes the mode to the response. Decoy calls are held for a duration learned from real calls (FT-003). | Done per routed call |
 | No real loss | Duress calls go to the decoy, which only records a `HeldTransaction` | Done in the demo |
 | Plausibility | Decoy balance minus held transfers, decoy statement includes them | Done in the demo |
 | Out-of-band alert | `DuressActivator` raises one `SilentAlert` per activation through `SilentAlertPublisher` | SPI done, real channels pending |
 | Fail safe | Alert failures are caught. `@Decoy` beans are never autowire candidates, even with the starter disabled. | Done |
 
-**Known limitations.** The receiving side eventually notices the Pix never arrived. Escalation risk if the attacker realizes the deception. Decoy calls are faster than real ones. A frightened user may forget the second PIN. The context is thread-bound (`@Async` and reactive code must propagate it). Push, SMS, e-mail and internet banking must also respect the decoy. Holding a confirmed Pix must fit central bank rules (MED). Attackers may learn to demand "the other PIN".
+**Known limitations.** The receiving side eventually notices the Pix never arrived. Escalation risk if the attacker realizes the deception. Response time parity is per routed call and uses a fallback range right after startup. A frightened user may forget the second PIN. The context is thread-bound (`@Async` and reactive code must propagate it). Push, SMS, e-mail and internet banking must also respect the decoy. Holding a confirmed Pix must fit central bank rules (MED). Attackers may learn to demand "the other PIN".
 
 **Out of scope by design.** Detecting the scam call, recovering money sent outside a duress session, replacing the bank's anti-fraud scoring.
 
 ## Constraints
 - **Regulatory:** holding a Pix the user confirmed must fit the central bank's Pix rules, including MED. Needs review by people who know the regulation.
 - **Technological:** Java 21, Spring Boot 4.1. `decoy-guard-core` has no runtime dependencies. Servlet stack only (no reactive support yet).
-- **Security:** nothing observable by the client may differ between modes. Response time parity is an open roadmap item.
+- **Security:** nothing observable by the client may differ between modes. Response time parity is handled by `LatencyShaper` (FT-003): do not add work to only one of the two paths outside routed calls.
 
 ## Dependencies
 | Dependency | Purpose |
