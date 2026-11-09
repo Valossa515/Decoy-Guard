@@ -14,7 +14,7 @@
 | **Stack** | Java 21, Spring Boot 4.1.2, Spring Web MVC, Spring AOP |
 | **Build tool** | Maven multi-module |
 | **Runtime version** | Java 21 (Temurin in CI) |
-| **Version** | 0.1.0-SNAPSHOT |
+| **Version** | 0.2.0-SNAPSHOT in development. Latest release: v0.1.0 |
 | **Source root** | `<module>/src/main/java/io/github/valossa515/decoyguard/...` |
 | **Test root** | `<module>/src/test/java/io/github/valossa515/decoyguard/...` |
 | **Status** | Early prototype for research and portfolio purposes. Not production ready. |
