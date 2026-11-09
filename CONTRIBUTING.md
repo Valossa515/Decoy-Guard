@@ -65,7 +65,7 @@ Versions follow [SemVer](https://semver.org/), `X.Y.Z`, staying on `0.x` while t
 
 To cut a version, after the release PR is merged:
 
-1. Actions, Release, Run workflow. Choose the `main` branch and type the version without the `v`, for example `0.1.0`.
+1. Actions, Release, Run workflow. In "Use workflow from", change the branch to `main`: the selector starts on `development`, the default branch, and the workflow refuses to run from it. Type the version without the `v`, for example `0.2.0`.
 2. The workflow checks the branch, the format and that the tag is new, sets the version in the poms for the build only, runs `mvn verify`, then creates the tag and the GitHub Release. The notes list the commits since the previous tag grouped by type, and the core and starter jars are attached.
 3. Open a PR to `development` that raises the pom version to the next `-SNAPSHOT`, titled `chore(release): start X.Y.Z-SNAPSHOT`.
 
