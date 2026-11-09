@@ -39,6 +39,11 @@ mvn -B verify      # what CI runs on push to main and on pull requests (.github/
 | Property | Default | Effect |
 |----------|---------|--------|
 | `decoy-guard.enabled` | `true` | `false` disables routing, the filter and the default SPI beans. Decoys stay hidden from injection. |
+| `decoy-guard.latency-shaping.enabled` | `true` | `false` stops observing real calls and holding decoy calls. |
+| `decoy-guard.latency-shaping.window-size` | `500` | Real durations kept per routed method and outcome. |
+| `decoy-guard.latency-shaping.min-observations` | `20` | Observations needed before they replace the fallback range. |
+| `decoy-guard.latency-shaping.fallback-min` / `fallback-max` | `150ms` / `400ms` | Decoy duration range while there are too few observations. |
+| `demo.core-banking-latency.min` / `max` | `120ms` / `350ms` | Demo only. Simulated hop to core banking in `RealAccountService`. Tests set it to zero, except `ResponseTimeParityTest`. |
 | `demo.real-pin` | `1234` | Demo only |
 | `demo.duress-pin` | `4321` | Demo only |
 

@@ -6,3 +6,8 @@ spring:
 demo:
   real-pin: "1234"
   duress-pin: "4321"
+  # Simulated hop to core banking and to the Pix rail. The real account is in memory,
+  # so this gives the decoy a response time to match (see decoy-guard.latency-shaping).
+  core-banking-latency:
+    min: 120ms
+    max: 350ms

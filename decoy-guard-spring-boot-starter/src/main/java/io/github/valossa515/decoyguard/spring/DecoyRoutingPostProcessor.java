@@ -1,6 +1,7 @@
 package io.github.valossa515.decoyguard.spring;
 
 import io.github.valossa515.decoyguard.core.DuressContextHolder;
+import io.github.valossa515.decoyguard.core.LatencyShaper;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.aop.support.AopUtils;
@@ -16,19 +17,29 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.StringJoiner;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Finds {@link Decoy} beans, hides them from autowiring and wraps the matching real beans
  * in a proxy that picks the real or the decoy implementation per call.
  * Decoys are hidden even when routing is disabled, so a decoy can never be injected by accident.
+ *
+ * <p>When a {@link LatencyShaper} bean exists, real calls are timed and decoy calls are held
+ * for a similar time, so the decoy does not answer noticeably faster than the real service.
  */
 public class DecoyRoutingPostProcessor implements BeanFactoryPostProcessor, BeanPostProcessor {
 
     /** Routed interface to the bean name of its decoy. */
     private final Map<Class<?>, String> decoyByInterface = new LinkedHashMap<>();
     private final boolean routingEnabled;
+    /** Operation key per routed method, as used by the {@link LatencyShaper}. */
+    private final Map<Method, String> operationKeys = new ConcurrentHashMap<>();
     private ConfigurableListableBeanFactory beanFactory;
+    /** Resolved on the first routed call: this post processor is created before regular beans. */
+    private volatile Optional<LatencyShaper> latencyShaper;
 
     /**
      * @param routingEnabled when {@code false}, decoys are still hidden from autowiring
@@ -100,24 +111,50 @@ public class DecoyRoutingPostProcessor implements BeanFactoryPostProcessor, Bean
 
     private MethodInterceptor routingInterceptor(Map<Class<?>, String> routes) {
         return invocation -> {
-            if (!DuressContextHolder.isDuress()) {
-                return invocation.proceed();
-            }
             Method method = invocation.getMethod();
-            String decoyName = decoyFor(routes, method);
-            if (decoyName == null) {
+            Map.Entry<Class<?>, String> route = routeFor(routes, method);
+            if (route == null) {
                 return invocation.proceed();
             }
-            Object decoy = beanFactory.getBean(decoyName);
-            return AopUtils.invokeJoinpointUsingReflection(decoy, method, invocation.getArguments());
+            LatencyShaper shaper = latencyShaper();
+            if (!DuressContextHolder.isDuress()) {
+                return shaper == null
+                        ? invocation.proceed()
+                        : shaper.observe(operationKey(route.getKey(), method), invocation::proceed);
+            }
+            Object decoy = beanFactory.getBean(route.getValue());
+            LatencyShaper.Call decoyCall =
+                    () -> AopUtils.invokeJoinpointUsingReflection(decoy, method, invocation.getArguments());
+            return shaper == null
+                    ? decoyCall.proceed()
+                    : shaper.shape(operationKey(route.getKey(), method), decoyCall);
         };
     }
 
-    private static String decoyFor(Map<Class<?>, String> routes, Method method) {
+    private LatencyShaper latencyShaper() {
+        Optional<LatencyShaper> resolved = latencyShaper;
+        if (resolved == null) {
+            resolved = Optional.ofNullable(beanFactory.getBeanProvider(LatencyShaper.class).getIfAvailable());
+            latencyShaper = resolved;
+        }
+        return resolved.orElse(null);
+    }
+
+    private String operationKey(Class<?> routed, Method method) {
+        return operationKeys.computeIfAbsent(method, m -> {
+            StringJoiner parameters = new StringJoiner(",", "(", ")");
+            for (Class<?> parameter : m.getParameterTypes()) {
+                parameters.add(parameter.getName());
+            }
+            return routed.getName() + "#" + m.getName() + parameters;
+        });
+    }
+
+    private static Map.Entry<Class<?>, String> routeFor(Map<Class<?>, String> routes, Method method) {
         Class<?> declaring = method.getDeclaringClass();
         for (Map.Entry<Class<?>, String> route : routes.entrySet()) {
             if (declaring.isAssignableFrom(route.getKey())) {
-                return route.getValue();
+                return route;
             }
         }
         return null;
