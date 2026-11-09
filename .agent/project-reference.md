@@ -185,6 +185,8 @@ mvn -pl decoy-guard-demo spring-boot:run     # demo on :8080, PINs 1234 real, 43
 bash .agent/scripts/validate-spec.sh .agent/specs   # validate TOON specs
 ```
 
+Branches, commits and PRs: see `CONTRIBUTING.md`. New code goes to `development` through a PR; CI and the rulesets in `.github/rulesets/` gate the merge.
+
 ---
 
 *Last updated: 2026-11-09*

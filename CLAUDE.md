@@ -41,9 +41,21 @@ New features follow the SDD pipeline. The roles live in `.agent/agents/`.
 2. **Architect** (`.agent/agents/architect.md`): contract in `.agent/specs/contracts/` and architecture notes in `.agent/plans/<feature>-architecture.md`. Check the design against `docs/threat-model.md` and the rules above.
 3. **Implement** (`.agent/agents/builder.md`, `@implementation`): production code only, following the contract or plan.
 4. **Test** (`.agent/agents/tester.md`, `@test-plan` and `@test`): test plan in `.agent/plans/<feature>-tests.md`, tests that reference the acceptance criteria ids, parity tests in the demo for routed interfaces.
-5. **Review** (`.agent/agents/reviewer.md`, `@review`): structured review, including the five rules above. `mvn verify` must pass.
+5. **Review** (`.agent/agents/reviewer.md`, `@review`): structured review, including the five rules above. `mvn verify` must pass. The work then goes up as a PR to `development` and is merged only with CI green.
 
 `.agent/agents/conductor.md` runs the whole pipeline. Small fixes may skip plan and architect, but never test and review.
+
+## Git and pull requests
+
+Details in `CONTRIBUTING.md`.
+
+* All new code goes to `development`, the default branch, through a PR. Nobody pushes to `main` or `development` directly.
+* Branches: `feature/ft-NNN-slug`, `fix/slug`, `refactor/slug`, `test/slug`, `docs/slug`, `chore/slug`, `ci/slug`, all from `development`. `hotfix/slug` starts from `main`.
+* Commits and PR titles: Conventional Commits in English, `<type>(<scope>): <summary>`, types `feat fix test refactor docs ci build chore`, scopes `core starter demo spec ci docs deps release`. PRs into `development` are squashed, so the PR title is the commit.
+* `main` only receives release PRs from `development` (merge commit) and hotfixes.
+* CI (`.github/workflows/ci.yml`) runs `build`, `specs`, `pr-title` and `branch-policy`. All must pass. The branch rules are in `.github/rulesets/`.
+
+## Housekeeping
 
 * Update the roadmap checklist in `README.md` when an item ships.
 * Record new architecture decisions in `.agent/decisions.md`.
