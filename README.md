@@ -7,6 +7,10 @@ Anti-coercion security layer for banking apps. A duress credential opens a convi
 ![Spring Boot 4](https://img.shields.io/badge/Spring%20Boot-4.1-brightgreen)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
+![Demo: duress login, Pix of R$ 200 held, real account intact, alert on the fraud desk](docs/media/demo.gif)
+
+*Left: normal session. Middle: duress session, same app and same code. Right: what only the bank sees.*
+
 > **Status:** early prototype for research and portfolio purposes. Not production ready.
 
 ## The problem
@@ -108,6 +112,10 @@ mvn -pl decoy-guard-demo spring-boot:run
 
 Demo PINs: `1234` (real) and `4321` (duress).
 
+Open http://localhost:8080 for the web front end: two phones running the same bank app side by side, and the fraud desk panel. The GIF at the top of this page was recorded from it with [docs/media/record-demo.mjs](docs/media/record-demo.mjs).
+
+Or use the API directly:
+
 ```bash
 # Log in with the duress PIN. The response looks exactly like a normal login.
 TOKEN=$(curl -s localhost:8080/login -H 'Content-Type: application/json' \
@@ -122,6 +130,9 @@ curl -s localhost:8080/account/pix -H "Authorization: Bearer $TOKEN" \
 
 curl -s "localhost:8080/fraud-desk/held?session=$TOKEN"
 # the held Pix, visible to the bank
+
+curl -s "localhost:8080/fraud-desk/alerts?session=$TOKEN"
+# the silent alert raised at login
 ```
 
 Repeat with PIN `1234` to see the real account (balance 48,750.32).
@@ -130,6 +141,7 @@ Repeat with PIN `1234` to see the real account (balance 48,750.32).
 
 * [Threat model](docs/threat-model.md): what this protects, what it does not, and why
 * [FT-001 Duress session routing](.agent/plans/duress-session-routing.md): first spec (plan), with its [feature spec](.agent/specs/features/duress-session-routing.spec.toon) and [acceptance criteria](.agent/specs/acceptance/duress-session-routing.acceptance.toon)
+* [FT-002 Mobile-style front end](.agent/plans/mobile-front-end.md): plan, with its [feature spec](.agent/specs/features/mobile-front-end.spec.toon), [acceptance criteria](.agent/specs/acceptance/mobile-front-end.acceptance.toon) and [contract](.agent/specs/contracts/mobile-front-end.contract.toon)
 * [Agent context](.agent/SKILLS.md): project context and conventions for AI coding agents, following [SDD](https://github.com/valossa515/sdd)
 
 ## Roadmap
@@ -137,7 +149,7 @@ Repeat with PIN `1234` to see the real account (balance 48,750.32).
 - [x] Core model, SPIs and in-memory defaults
 - [x] Spring Boot starter with `@Decoy` routing
 - [x] Demo bank API with held Pix and fraud desk view
-- [ ] Mobile-style web front end showing both sessions side by side
+- [x] Mobile-style web front end showing both sessions side by side
 - [ ] Response time parity (decoy latency shaped like the real backend)
 - [ ] Redis `DuressSessionRegistry` and JDBC `HeldTransactionStore`
 - [ ] Risk signals: active phone call, screen mirroring, remote access apps (Android module)

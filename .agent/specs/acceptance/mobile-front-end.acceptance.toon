@@ -1,0 +1,24 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/mobile-front-end.acceptance.toon
+# Plan (human doc): .agent/plans/mobile-front-end.md
+
+acceptance:
+  feature-ref: FT-002
+  version: 0.1.0-SNAPSHOT
+
+criteria[8]{id,scenario,given,when,then,priority,business-rule-ref,test}:
+  AC-01,Page is served,The demo is running,GET /index.html,Returns 200 text/html with two phone slots and the fraud desk panel and one phone template,must-have,BR-001,FrontEndTest.pageIsServed
+  AC-02,Welcome page at root,The demo is running,GET /,The request is forwarded to index.html,must-have,BR-001,FrontEndTest.rootServesThePage
+  AC-03,Assets are served,The demo is running,GET /styles.css and GET /app.js,Both return 200 with text/css and a JavaScript content type,must-have,BR-001,FrontEndTest.assetsAreServed
+  AC-04,Phone template has no mode marker,The page is served,The phone template is extracted from index.html,It contains none of coação or duress or decoy or normal or real or 1234 or 4321 and both legends with the PINs are outside it,must-have,BR-005,FrontEndTest.phoneTemplateHasNoModeMarker
+  AC-05,Phone code is shared and uses only existing endpoints,The page is served,app.js is inspected,The phone module calls only /login and /account/balance and /account/statement and /account/pix and index.html mounts the same template twice with no mode parameter,must-have,BR-003,FrontEndTest.phonesShareOneModuleAndUseOnlyTheAccountApi
+  AC-06,Fraud desk sees only the duress session,A normal and a duress session are open and the duress session sent a Pix of 200,The fraud desk endpoints used by the panel are called with each token,The duress token returns the held Pix and one alert with trigger DURESS_CREDENTIAL and the normal token returns nothing,must-have,BR-006,FrontEndTest.fraudDeskShowsOnlyTheDuressSession
+  AC-07,No external hosts,The page is served,index.html and app.js are inspected,No script or stylesheet or fetch points to an http or https host,should-have,BR-001,FrontEndTest.pageUsesNoExternalHost
+  AC-08,README shows the flow,The feature is implemented,The README is opened,A GIF at the top shows a duress login then a Pix of R$ 200 then the fake balance dropping and the real account intact and the Pix on the fraud desk,should-have,BR-002,Manual check in review
+
+coverage[2]{requirements,test}:
+  AC-01 to AC-07,FrontEndTest (demo MockMvc)
+  AC-08,Review checklist
+
+assumptions[1]:
+  Rendering and pt-BR formatting (BR-008) and responsive stacking (BR-010) are verified visually by the recorded GIF and a phone width screenshot during review since there is no browser test in mvn verify

@@ -26,7 +26,8 @@ Elderly people in Brazil are coerced, by phone or in person, into opening their 
 1. Login with the real PIN opens a NORMAL session. Calls reach the real services.
 2. Login with the duress PIN opens a session that looks identical, switches it to DURESS and raises one silent alert.
 3. In a DURESS session every call on a routed interface reaches the `@Decoy` bean. A Pix returns a normal receipt, lowers the decoy balance and is stored as a `HeldTransaction`.
-4. The fraud desk reads the held transactions of a session.
+4. The fraud desk reads the held transactions and the silent alert of a session.
+5. The web front end at `/` (FT-002) shows two identical phones and the fraud desk panel.
 
 ---
 
@@ -96,7 +97,8 @@ None yet. Every storage and delivery concern is an SPI with an in-memory or logg
 | `auth.AuthController` | `/login`. Same response for real and duress PIN. Activates duress on the duress PIN. |
 | `auth.DemoSessions` | Toy store of opaque UUID tokens. |
 | `auth.SessionInterceptor` | Rejects `/account/**` without an open session (401). |
-| `fraud.FraudDeskController` | `/fraud-desk/held`, stand-in for the bank back office. |
+| `fraud.FraudDeskController` | `/fraud-desk/held` and `/fraud-desk/alerts`, stand-in for the bank back office. |
+| `static/index.html`, `app.js`, `styles.css` | FT-002 front end. One phone `<template>` and one `mountPhone(slot)` for both phones, plus the fraud desk poller. |
 
 ---
 
@@ -109,6 +111,8 @@ None yet. Every storage and delivery concern is an SPI with an in-memory or logg
 | GET | `/account/statement` | `AccountController` | List of `{date, description, amount}` | Bearer |
 | POST | `/account/pix` | `AccountController` | Body `{key, amount}`. Returns `{endToEndId, key, amount, at, status}`. 422 `{"error":"Saldo insuficiente"}`. | Bearer |
 | GET | `/fraud-desk/held?session=` | `FraudDeskController` | Held transactions of a session (back office stand-in). | No (demo only) |
+| GET | `/fraud-desk/alerts?session=` | `FraudDeskController` | Zero or one `SilentAlert` rebuilt from the registry (back office stand-in). | No (demo only) |
+| GET | `/` | static | FT-002 front end (`index.html`). | No |
 
 ---
 

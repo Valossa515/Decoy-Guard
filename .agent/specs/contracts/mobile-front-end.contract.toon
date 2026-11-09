@@ -1,0 +1,57 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/mobile-front-end.contract.toon
+# Feature: .agent/specs/features/mobile-front-end.spec.toon (FT-002, legacy DG-002)
+
+contract:
+  feature-ref: FT-002
+  version: 0.1.0-SNAPSHOT
+
+layers:
+  api:
+    files[1]{path,action,description}:
+      decoy-guard-demo/src/main/java/io/github/valossa515/decoyguard/demo/fraud/FraudDeskController.java,modify,Add GET /fraud-desk/alerts?session= returning a list with zero or one SilentAlert from DuressSessionRegistry.resolve and SilentAlert.of
+  web:
+    files[3]{path,action,description}:
+      decoy-guard-demo/src/main/resources/static/index.html,create,Layout with three panels and legends outside the frames and one phone template
+      decoy-guard-demo/src/main/resources/static/styles.css,create,Bank look and responsive stacking below 1100px
+      decoy-guard-demo/src/main/resources/static/app.js,create,mountPhone(slot) used for both phones and the fraud desk poller (2 s) over every open token
+  docs:
+    files[3]{path,action,description}:
+      docs/media/demo.gif,create,Recorded duress flow shown at the top of the README
+      docs/media/record-demo.mjs,create,Playwright script that drives the page and writes the GIF frames (run by hand)
+      README.md,modify,GIF at the top and roadmap item checked and link to the FT-002 plan
+
+migrations[0]:
+
+dependencies:
+  uses[3]:
+    DuressSessionRegistry (existing SPI bean)
+    HeldTransactionStore (existing SPI bean)
+    Existing /login and /account endpoints
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: none
+      scenarios[0]:
+  integration-tests:
+    - target: Static page and FraudDeskController
+      type: mockmvc
+      scenarios[7]:
+        page-is-served
+        root-serves-the-page
+        assets-are-served
+        phone-template-has-no-mode-marker
+        phones-share-one-module-and-use-only-the-account-api
+        fraud-desk-shows-only-the-duress-session
+        page-uses-no-external-host
+  excluded[2]{target,reason}:
+    Unit tests,No new Java logic beyond one controller method which is covered end to end by MockMvc
+    Browser rendering,No browser in mvn verify. Checked by the recorded GIF and a phone width screenshot in review
+
+rules-check[5]{rule,how}:
+  Mode never observable by the client,Phones share one template and module and only call /login and /account. Alerts endpoint is back office like /fraud-desk/held
+  Real and decoy share DTOs,No routed interface change
+  Decoy beans never injectable,No new injection of AccountService implementations
+  Alert failures never fail the request,Alerts endpoint only reads the registry and never publishes
+  New storage is an SPI,No new storage. Alerts are derived from DuressSessionRegistry

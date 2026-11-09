@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decoy Guard demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="intro">
+    <h1>Decoy Guard</h1>
+    <p>Dois celulares com o mesmo app e o mesmo código. Um entra com a senha normal, o outro com a senha de coação.
+      Nada dentro do celular mostra a diferença. Só o banco, na mesa de fraude, sabe.</p>
+  </header>
+
+  <main class="stage">
+    <figure class="demo-slot">
+      <figcaption class="legend legend-normal">Sessão normal (PIN 1234)</figcaption>
+      <div class="phone-slot" data-phone></div>
+    </figure>
+
+    <figure class="demo-slot">
+      <figcaption class="legend legend-duress">Sessão sob coação (PIN 4321)</figcaption>
+      <div class="phone-slot" data-phone></div>
+    </figure>
+
+    <section class="fraud-desk" aria-labelledby="fraud-desk-title">
+      <div class="fraud-head">
+        <h2 id="fraud-desk-title">Mesa de fraude</h2>
+        <span class="live" title="Atualiza a cada 2 segundos"><i></i>ao vivo</span>
+      </div>
+      <p class="fraud-sub">Visão do banco (back office). O cliente e o golpista nunca veem este painel.</p>
+
+      <h3>Alertas silenciosos</h3>
+      <ul class="fraud-list" data-alerts>
+        <li class="empty">Nenhum alerta até agora.</li>
+      </ul>
+
+      <h3>Transações retidas</h3>
+      <ul class="fraud-list" data-held>
+        <li class="empty">Nenhuma transação retida.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    Demonstração de pesquisa. Banco, cliente e valores são fictícios.
+  </footer>
+
+  <!-- The bank app. Both phones are clones of this template, driven by the same code. -->
+  <template id="phone-template">
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-status"><span data-clock>9:41</span><span class="status-icons">5G ▮▮▮</span></div>
+      <div class="screens">
+
+        <section class="screen screen-login" data-screen="login">
+          <div class="brand"><span class="brand-mark">ipê</span><span class="brand-name">Banco Ipê</span></div>
+          <p class="login-hello">Olá, Maria</p>
+          <p class="login-hint">Digite sua senha de 4 dígitos</p>
+          <div class="pin-dots" data-pin-dots><i></i><i></i><i></i><i></i></div>
+          <p class="login-error" data-login-error aria-live="polite"></p>
+          <div class="keypad" data-keypad>
+            <button type="button" data-key="1">1</button>
+            <button type="button" data-key="2">2</button>
+            <button type="button" data-key="3">3</button>
+            <button type="button" data-key="4">4</button>
+            <button type="button" data-key="5">5</button>
+            <button type="button" data-key="6">6</button>
+            <button type="button" data-key="7">7</button>
+            <button type="button" data-key="8">8</button>
+            <button type="button" data-key="9">9</button>
+            <span></span>
+            <button type="button" data-key="0">0</button>
+            <button type="button" data-key="back" aria-label="Apagar">⌫</button>
+          </div>
+        </section>
+
+        <section class="screen screen-home" data-screen="home" hidden>
+          <div class="home-top">
+            <div>
+              <p class="home-hello">Olá, Maria</p>
+              <p class="home-account">Ag 0001 · Conta 102938-4</p>
+            </div>
+            <button type="button" class="link-button" data-action="logout">Sair</button>
+          </div>
+          <div class="balance-card">
+            <div class="balance-label">
+              <span>Saldo disponível</span>
+              <button type="button" class="eye" data-action="toggle-balance" aria-label="Mostrar ou ocultar saldo">👁</button>
+            </div>
+            <p class="balance-value" data-balance>R$ ••••</p>
+          </div>
+          <div class="shortcuts">
+            <button type="button" class="shortcut shortcut-main" data-action="open-pix"><span class="shortcut-icon">◆</span>Pix</button>
+            <button type="button" class="shortcut" disabled><span class="shortcut-icon">▤</span>Pagar</button>
+            <button type="button" class="shortcut" disabled><span class="shortcut-icon">⇄</span>Transferir</button>
+            <button type="button" class="shortcut" disabled><span class="shortcut-icon">▭</span>Cartões</button>
+          </div>
+          <h4 class="section-title">Últimas movimentações</h4>
+          <ul class="statement" data-statement></ul>
+        </section>
+
+        <section class="screen screen-pix" data-screen="pix" hidden>
+          <div class="screen-head">
+            <button type="button" class="back" data-action="go-home" aria-label="Voltar">‹</button>
+            <h4>Pix</h4>
+            <span></span>
+          </div>
+          <form class="pix-form" data-pix-form novalidate>
+            <label>Chave Pix
+              <input type="text" name="key" autocomplete="off" placeholder="CPF, e-mail, celular ou chave aleatória" data-pix-key>
+            </label>
+            <label>Valor
+              <input type="text" name="amount" inputmode="numeric" autocomplete="off" value="R$ 0,00" data-pix-amount>
+            </label>
+            <p class="pix-available">Saldo disponível: <strong data-pix-available>R$ ••••</strong></p>
+            <p class="pix-error" data-pix-error aria-live="polite"></p>
+            <button type="submit" class="primary" data-pix-submit disabled>Enviar Pix</button>
+          </form>
+        </section>
+
+        <section class="screen screen-receipt" data-screen="receipt" hidden>
+          <div class="receipt-check">✓</div>
+          <h4 class="receipt-title">Pix enviado</h4>
+          <p class="receipt-amount" data-receipt-amount></p>
+          <dl class="receipt-details">
+            <div><dt>Para</dt><dd data-receipt-key></dd></div>
+            <div><dt>Data</dt><dd data-receipt-at></dd></div>
+            <div><dt>Situação</dt><dd data-receipt-status></dd></div>
+            <div><dt>ID da transação</dt><dd class="mono" data-receipt-id></dd></div>
+          </dl>
+          <button type="button" class="primary" data-action="go-home">Voltar ao início</button>
+        </section>
+
+      </div>
+      <div class="phone-home-bar"></div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

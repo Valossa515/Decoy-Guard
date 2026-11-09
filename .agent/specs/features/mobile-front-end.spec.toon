@@ -1,0 +1,87 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/mobile-front-end.spec.toon
+# Requested as DG-002. The SDD validator requires FT-NNN so the id is FT-002 and DG-002 is kept as legacy-id.
+# Plan (human doc): .agent/plans/mobile-front-end.md
+# Acceptance: .agent/specs/acceptance/mobile-front-end.acceptance.toon
+
+feature:
+  id: FT-002
+  legacy-id: DG-002
+  name: Mobile-style front end showing both sessions side by side
+  version: 0.1.0-SNAPSHOT
+  status: implemented
+  owner: Felipe Martins
+
+modules[1]: decoy-guard-demo
+
+stack:
+  java: 21
+  spring_boot: 4.1.2
+  build: maven
+  front_end: static HTML and CSS and plain JS with no build step
+
+requirement:
+  summary: A static page served by the demo shows two phone mockups side by side running the same bank app flow (PIN login then home with balance and statement then Pix with key and amount then receipt) against the existing API. One phone is used with the real PIN and the other with the duress PIN. Nothing inside a phone reveals which session is real. Legends outside the frames name each session. A third panel called Mesa de fraude shows the silent alert and the held transactions and refreshes on its own.
+  actor: Person watching the demo (README reader or live audience) who types the PIN on each phone and the fraud analyst panel
+  trigger: GET / on the running demo
+
+goals[3]:
+  Make the duress flow understandable in a few seconds without curl
+  Prove indistinguishability visually with identical phone code against the existing API
+  Show the bank side (alert and held Pix) next to what the attacker sees
+
+non-goals[4]:
+  A real mobile app or a SPA framework or a build step or npm dependencies
+  Changes to decoy-guard-core or the starter
+  Response time shaping (separate roadmap item)
+  Authentication for the fraud desk (it stays a back office stand-in)
+
+inputs[4]{name,type,required,constraints}:
+  pin,string (4 digits),true,Typed on the phone keypad. 1234 opens the real session and 4321 the duress session. Sent as POST /login
+  pix key,string,true,Free text typed on the Pix screen. Sent as key in POST /account/pix
+  pix amount,decimal BRL,true,Typed with pt-BR format (comma decimal). Must be greater than zero. Sent as amount in POST /account/pix
+  session tokens,list of string,false,Tokens of the open phones. Used only by the fraud desk panel to poll and never tells which phone is in duress
+
+outputs:
+  success:
+    description: The page renders two identical phones and the fraud desk panel. After a duress login and a Pix the duress phone shows a receipt with status Concluído and a lower balance while the normal phone keeps the real balance and the fraud desk lists the held Pix and the alert.
+    status: 200
+    body[6]{name,type,value}:
+      index.html,text/html,Layout with legends and phone template and fraud desk panel
+      styles.css,text/css,Bank look and responsive stacking
+      app.js,text/javascript,One phone module mounted twice plus the fraud desk poller
+      balance,R$ pt-BR,Formatted from /account/balance available
+      statement,list,date and description and amount from /account/statement
+      receipt,card,endToEndId and key and amount and at and status from /account/pix
+  errors[3]{code,status,when}:
+    WRONG_PIN,401,PIN is neither the real nor the duress PIN. The phone shows PIN incorreto and stays on the login screen. Same in both phones
+    INSUFFICIENT_FUNDS,422,Pix amount above the available balance. The phone shows the error field from the API (Saldo insuficiente). Same in both phones
+    SESSION_EXPIRED,401,An /account call returns 401 (for example after a demo restart). The phone goes back to the login screen. Same in both phones
+
+business-rules[10]{id,source,priority,rule}:
+  BR-001,FR-01,must,The demo serves a static page at / from src/main/resources/static with plain HTML and CSS and JS and no build step and no external CDN
+  BR-002,FR-02,must,Each phone has the flow PIN login then home with balance and statement then Pix form then receipt with a way back home and a logout
+  BR-003,FR-03,must,Both phones are mounted from one template and one JS module with no per-phone branch or flag or class or text inside the phone
+  BR-004,FR-04,must,Phones call only /login and /account/balance and /account/statement and /account/pix and nothing rendered inside a phone reveals the session mode including errors
+  BR-005,FR-05,must,The captions Sessão normal (PIN 1234) and Sessão sob coação (PIN 4321) are outside the phone frame as demo legends
+  BR-006,FR-06,must,The Mesa de fraude panel lists held transactions from /fraud-desk/held and refreshes on its own every 2 seconds
+  BR-007,FR-07,must,The Mesa de fraude panel shows the silent alert of the duress session with trigger and time read from GET /fraud-desk/alerts?session= (zero or one SilentAlert built from DuressSessionRegistry.resolve)
+  BR-008,FR-08,must,Money is shown as R$ with pt-BR formatting and dates in pt-BR in America/Sao_Paulo
+  BR-009,FR-09,should,Modern Brazilian bank app look with a fictitious brand and a hide balance toggle and Pix as the main shortcut
+  BR-010,FR-10,must,On narrow screens the three panels stack vertically with no horizontal scroll
+
+non-functional[3]{id,requirement}:
+  NFR-01,No new Java runtime dependency and no Node or npm in the Maven build
+  NFR-02,The fraud desk polls with every open token and does not learn from the page which phone is in duress
+  NFR-03,Docs and README prose in plain sentences with no em dashes
+
+assumptions[6]:
+  The id DG-002 requested by the user becomes FT-002 because the SDD validator only accepts FT-NNN
+  Static resources are served by Spring Boot default resource handling and index.html is the welcome page at /
+  The fictitious brand name and the account holder name shown on the home screen are hardcoded in the shared phone code so both phones show the same text
+  The real account is a singleton so a Pix from the normal phone lowers the real balance until the demo restarts. The GIF only sends Pix from the duress phone
+  Network traffic seen in browser dev tools is out of the threat model (network interception is out of scope) so the fraud desk polling both tokens is acceptable
+  The page is tested with MockMvc (served resources and template content). Browser behavior is checked by the Playwright script that records the GIF which runs by hand and not in mvn verify
+
+decisions[1]{id,question,choice}:
+  OQ-01,How does the fraud desk show the silent alert when no endpoint exposes it today,Approved by Felipe on 2026-11-09: GET /fraud-desk/alerts?session= on FraudDeskController returns zero or one SilentAlert built from DuressSessionRegistry.resolve with SilentAlert.of and no new storage

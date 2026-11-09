@@ -43,3 +43,9 @@ Lightweight ADRs reconstructed from the code, `CLAUDE.md` and the threat model a
 - **Context:** specs lived in `docs/specs/` as a `.md` plus `.toon` pair per feature.
 - **Choice:** adopt SDD. Feature specs in `.agent/specs/features`, acceptance in `.agent/specs/acceptance`, plans in `.agent/plans`. DG-001 migrated as FT-001.
 - **Consequences:** `docs/specs/` removed. Specs are checked with `.agent/scripts/validate-spec.sh`.
+
+## ADR-009 Demo front end is static and the fraud desk reads alerts from the registry
+- **Date:** 2026-11-09
+- **Context:** FT-002 needs a visual demo of both sessions and a fraud desk panel that shows the silent alert, which no endpoint exposed.
+- **Choice:** plain HTML, CSS and JS in `decoy-guard-demo/src/main/resources/static`, no build step. Both phones are mounted by one `mountPhone(slot)` from one `<template>`. The back office gets `GET /fraud-desk/alerts?session=`, rebuilt from `DuressSessionRegistry.resolve` with `SilentAlert.of` instead of storing alerts.
+- **Consequences:** no new storage SPI and no library change. The panel polls with every open token, so the page itself never knows which phone is in duress. Like `/fraud-desk/held`, the alerts endpoint reveals the mode and must live behind internal auth in a real deployment.
