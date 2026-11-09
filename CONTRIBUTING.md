@@ -50,7 +50,7 @@ Pull requests into `development` are squashed, so the PR title becomes the commi
 
 1. Open the PR against `development` and fill in the template.
 2. CI must pass: `build` (`mvn -B verify`), `specs` (TOON spec validation), `pr-title` and `branch-policy`.
-3. Resolve every review conversation. The maintainer is asked for review through `CODEOWNERS` and is the one who merges.
+3. Resolve every review conversation. `CODEOWNERS` asks the maintainer for review on PRs opened by others, and the maintainer is the one who merges. PRs opened by Claude Code sessions carry the maintainer's own account, so GitHub requests no review there; the maintainer reviews them before merging.
 4. Squash and merge. The head branch is deleted automatically.
 
 ## Releases and hotfixes

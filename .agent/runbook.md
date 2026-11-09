@@ -45,7 +45,7 @@ Dependabot (`.github/dependabot.yml`) opens weekly PRs for Maven and GitHub Acti
 Repository settings, done by hand by the owner:
 - Default branch: `development`.
 - Pull requests: allow merge commits and squash merging, no rebase merging, always suggest updating branches, delete head branches automatically.
-- Rulesets: import `.github/rulesets/main.json` and `.github/rulesets/development.json` (Settings, Rules, Rulesets, Import a ruleset). Both require a PR, the CI checks above, an up to date branch and resolved conversations, and block force pushes and deletion. No bypass. Zero required approvals, because PRs opened by Claude Code are authored by the owner's account and GitHub does not let an author approve their own PR. Review is requested through `.github/CODEOWNERS`.
+- Rulesets: import `.github/rulesets/main.json` and `.github/rulesets/development.json` (Settings, Rules, Rulesets, Import a ruleset). Both require a PR, the CI checks above, an up to date branch and resolved conversations, and block force pushes and deletion. No bypass. Zero required approvals, because PRs opened by Claude Code are authored by the owner's account and GitHub does not let an author approve their own PR. `.github/CODEOWNERS` requests the owner's review on PRs opened by others (Dependabot, contributors). On PRs opened by Claude Code the owner is the author, so the review is the owner reading the PR before merging.
 
 - No migrations.
 - Not published yet. Maven Central under `io.github.valossa515` is on the roadmap.
