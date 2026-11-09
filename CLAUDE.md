@@ -53,6 +53,7 @@ Details in `CONTRIBUTING.md`.
 * Branches: `feature/ft-NNN-slug`, `fix/slug`, `refactor/slug`, `test/slug`, `docs/slug`, `chore/slug`, `ci/slug`, all from `development`. `hotfix/slug` starts from `main`.
 * Commits and PR titles: Conventional Commits in English, `<type>(<scope>): <summary>`, types `feat fix test refactor docs ci build chore`, scopes `core starter demo spec ci docs deps release`. PRs into `development` are squashed, so the PR title is the commit.
 * `main` only receives release PRs from `development` (merge commit) and hotfixes.
+* A version is a tag `vX.Y.Z` on `main`, created only by the `Release` workflow run by hand. Never create or move version tags yourself.
 * CI (`.github/workflows/ci.yml`) runs `build`, `specs`, `pr-title` and `branch-policy`. All must pass. The branch rules are in `.github/rulesets/`.
 
 ## Housekeeping
