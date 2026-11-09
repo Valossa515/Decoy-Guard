@@ -38,17 +38,18 @@ CI (`.github/workflows/ci.yml`) runs on push to `main` and `development` and on 
 | `pr-title` | `.github/scripts/check-pr-title.sh` (Conventional Commits) | PRs |
 | `branch-policy` | `.github/scripts/check-branch-policy.sh` (branch name, only `development` or `hotfix/*` into `main`) | PRs |
 
-Release: PR from `development` to `main`, titled `chore(release): ...`, merged with a merge commit.
+Release PR: from `development` to `main`, titled `chore(release): ...`, merged with a merge commit. It does not create a version.
+Version: run the `Release` workflow (`.github/workflows/release.yml`) by hand on `main` with the version `X.Y.Z`. It checks the input (`.github/scripts/check-release.sh`), runs `mvn versions:set` without committing, `mvn -B verify`, writes the notes (`.github/scripts/release-notes.sh`) and creates the tag `vX.Y.Z` plus a GitHub Release with the core and starter jars. Then raise the pom version on `development` to the next `-SNAPSHOT` through a PR.
 Hotfix: `hotfix/slug` from `main`, PR to `main` (squash), then a PR from `main` to `development`.
 Dependabot (`.github/dependabot.yml`) opens weekly PRs for Maven and GitHub Actions against `development`.
 
 Repository settings, done by hand by the owner:
 - Default branch: `development`.
 - Pull requests: allow merge commits and squash merging, no rebase merging, always suggest updating branches, delete head branches automatically.
-- Rulesets: import `.github/rulesets/main.json` and `.github/rulesets/development.json` (Settings, Rules, Rulesets, Import a ruleset). Both require a PR, the CI checks above, an up to date branch and resolved conversations, and block force pushes and deletion. No bypass. Zero required approvals, because PRs opened by Claude Code are authored by the owner's account and GitHub does not let an author approve their own PR. `.github/CODEOWNERS` requests the owner's review on PRs opened by others (Dependabot, contributors). On PRs opened by Claude Code the owner is the author, so the review is the owner reading the PR before merging.
+- Rulesets: import `.github/rulesets/main.json`, `.github/rulesets/development.json` and `.github/rulesets/tags.json` (blocks moving or deleting `v*` tags) (Settings, Rules, Rulesets, Import a ruleset). Both require a PR, the CI checks above and resolved conversations, and block force pushes and deletion. `development` also requires the branch to be up to date with it. `main` does not, because every release adds a merge commit to `main` that `development` never receives (it only takes squashed PRs), so a release PR could never be up to date. No bypass. Zero required approvals, because PRs opened by Claude Code are authored by the owner's account and GitHub does not let an author approve their own PR. `.github/CODEOWNERS` requests the owner's review on PRs opened by others (Dependabot, contributors). On PRs opened by Claude Code the owner is the author, so the review is the owner reading the PR before merging.
 
 - No migrations.
-- Not published yet. Maven Central under `io.github.valossa515` is on the roadmap.
+- Versions are GitHub Releases only. Maven Central under `io.github.valossa515` is on the roadmap.
 
 ## Configuration
 | Property | Default | Effect |
