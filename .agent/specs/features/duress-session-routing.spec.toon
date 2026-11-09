@@ -1,0 +1,103 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/duress-session-routing.spec.toon
+# Migrated from docs/specs/DG-001-duress-session-routing (.md + .toon). Legacy id: DG-001.
+# Plan (human doc): .agent/plans/duress-session-routing.md
+# Acceptance: .agent/specs/acceptance/duress-session-routing.acceptance.toon
+
+feature:
+  id: FT-001
+  legacy-id: DG-001
+  name: Duress session routing
+  version: 0.1.0-SNAPSHOT
+  status: implemented
+  owner: Felipe Martins
+
+modules[3]: decoy-guard-core,decoy-guard-spring-boot-starter,decoy-guard-demo
+
+stack:
+  java: 21
+  spring_boot: 4.1.2
+  build: maven
+
+requirement:
+  summary: A coerced user must be able to log in and see a believable account and "send" transfers without any real effect while the bank is notified. Each call on a routed service reaches the real or the decoy implementation per session and transparently so application code (controllers and use cases) never needs to know whether the session is real or a decoy.
+  actor: Account holder under coercion (logs in with the duress credential) and the bank application code that calls routed services
+  trigger: DuressActivator.activate(sessionId trigger) at login then every HTTP request carrying the session id
+
+goals[4]:
+  Route each call to the real or the decoy implementation of a service per session and transparently
+  Keep decoy implementations impossible to inject by mistake
+  Raise exactly one silent alert when a session enters duress mode
+  Keep every storage and alert component replaceable
+
+non-goals[3]:
+  Risk signal detection on the device (future spec)
+  Durable storage implementations (future spec)
+  Response time shaping (future spec)
+
+inputs[5]{name,type,required,constraints}:
+  sessionId,String,false,Opaque session id from SessionIdExtractor (default: bearer token). Null means anonymous and NORMAL
+  trigger,ActivationTrigger,true,DURESS_CREDENTIAL or RISK_SIGNAL or MANUAL. Required by DuressActivator.activate
+  routed interface call,method invocation,true,Any method of an interface that has a @Decoy implementation
+  @Decoy.value,Class[],false,Empty means every interface the bean implements. Listed types must be interfaces the bean implements
+  decoy-guard.enabled,boolean,false,Defaults to true
+
+outputs:
+  success:
+    description: The call is served by the real bean in a NORMAL session and by the @Decoy bean in a DURESS session. Responses have the same shape in both modes. The first activation of a session publishes one SilentAlert.
+    status: 200
+    body[3]{name,type,value}:
+      DuressContext,record,sessionId mode trigger activatedAt
+      SilentAlert,record,sessionId trigger raisedAt
+      HeldTransaction,record,id sessionId type amount counterparty heldAt
+  errors[2]{code,status,when}:
+    INSUFFICIENT_FUNDS,422,Pix amount above the available balance. Same status and message ("Saldo insuficiente") in both modes
+    UNAUTHORIZED,401,Wrong PIN at login or no open session on /account. Same in both modes
+
+startup-failures[2]{code,when}:
+  DUPLICATE_DECOY,Two @Decoy beans stand in for the same interface
+  INVALID_DECOY_INTERFACE,@Decoy lists a type that the bean does not implement as an interface
+
+business-rules[10]{id,source,priority,rule}:
+  BR-001,FR-01,must,A session has a mode NORMAL or DURESS. Unknown or anonymous sessions are NORMAL
+  BR-002,FR-02,must,DuressActivator.activate(sessionId trigger) switches a session to DURESS and is idempotent. The first activation's trigger and time are kept
+  BR-003,FR-03,must,Each activation of a previously NORMAL session publishes exactly one SilentAlert
+  BR-004,FR-04,must,A bean annotated @Decoy stands in for the interfaces it implements or only those listed in the annotation
+  BR-005,FR-05,must,Beans implementing a routed interface are wrapped so that per call DURESS sessions reach the decoy and NORMAL sessions reach the real bean
+  BR-006,FR-06,must,@Decoy beans are never autowire candidates including when the starter is disabled
+  BR-007,FR-07,must,Two @Decoy beans for the same interface fail application startup
+  BR-008,FR-08,must,The session mode is resolved once per HTTP request and cleared at the end of it
+  BR-009,FR-09,should,Decoy transfers are recorded as HeldTransactions with the destination typed by the user
+  BR-010,FR-10,should,decoy-guard.enabled=false disables routing and the filter and the default SPI beans
+
+non-functional[4]{id,requirement}:
+  NFR-01,The mode is never written to any response (headers or body or cookies)
+  NFR-02,A failing alert channel never fails the request that triggered it
+  NFR-03,decoy-guard-core has no runtime dependencies
+  NFR-04,Java 21 and Spring Boot 4.1
+
+components[7]{name,module,role}:
+  DuressContext,core,Record with sessionId and mode and trigger and activatedAt
+  DuressContextHolder,core,ThreadLocal binding of the current context
+  DuressActivator,core,Activates the session and publishes one alert swallowing alert failures
+  DuressContextFilter,starter,Servlet filter (order HIGHEST_PRECEDENCE + 100) resolving the context per request
+  DecoyRoutingPostProcessor,starter,BFPP hides decoys and maps interface to decoy. BPP wraps real beans in routing JDK proxies
+  SessionIdExtractor,starter,SPI. Default reads the bearer token
+  DecoyGuardAutoConfiguration,starter,Wires defaults with ConditionalOnMissingBean
+
+spis[4]{name,default,production_hint}:
+  DuressSessionRegistry,InMemoryDuressSessionRegistry,Redis or database shared by all instances
+  HeldTransactionStore,InMemoryHeldTransactionStore,Durable store read by the fraud team
+  SilentAlertPublisher,LoggingSilentAlertPublisher,Fraud queue or trusted contact channel
+  SessionIdExtractor,BearerTokenSessionIdExtractor,JWT claim or session cookie
+
+rules[4]:
+  Inject routed services by interface and never by concrete class
+  Real and decoy must share DTOs and exceptions and id formats
+  Never expose the session mode to the client
+  The decoy must keep working when the alert channel fails
+
+assumptions[3]:
+  Business rule ids BR-001 to BR-010 map one to one to the legacy functional requirements FR-01 to FR-10 (column source)
+  Error codes INSUFFICIENT_FUNDS and UNAUTHORIZED name the demo behavior covered by AC-04 and DuressFlowTest. The legacy spec had no error codes
+  Startup failures are not HTTP errors so they are listed in startup-failures and not in outputs.errors

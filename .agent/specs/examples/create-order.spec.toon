@@ -1,0 +1,40 @@
+# TOON v3.0 – Feature Specification
+# Example spec used as reference and as a test fixture for validate-spec.sh
+
+feature:
+  id: FT-001
+  name: Create Order
+  version: 1.0
+  status: draft
+
+requirement:
+  summary: Allow an authenticated user to create an order with one or more items so that stock is reserved and the purchase can proceed to payment.
+  actor: Authenticated User
+  trigger: POST /api/v1/orders
+
+inputs[2]{name,type,required,constraints}:
+  customer_id,UUID,true,Must reference an existing customer
+  items,list,true,At least 1 item and max 50 items
+
+outputs:
+  success:
+    description: Order is created and returned with generated ID
+    status: 201
+    body[2]{name,type,value}:
+      id,UUID,
+      status,string,PENDING
+  errors[2]{code,status,when}:
+    CUSTOMER_NOT_FOUND,404,customer_id does not exist
+    EMPTY_ORDER,422,items list is empty
+
+business-rules[2]{id,rule}:
+  BR-001,Order total must be recalculated from item prices × quantities
+  BR-002,Stock must be validated before accepting the order
+
+assumptions[2]:
+  Currency is always BRL
+  Prices are stored in cents (integer)
+
+batches[2]{id,scope,estimate}:
+  BATCH-01,Core order creation (happy path),1-2 days
+  BATCH-02,Error handling and edge cases,1 day

@@ -1,0 +1,25 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/duress-session-routing.acceptance.toon
+# Migrated from docs/specs/DG-001-duress-session-routing (.md + .toon). Criterion ids are unchanged.
+
+acceptance:
+  feature-ref: FT-001
+  version: 0.1.0-SNAPSHOT
+
+criteria[7]{id,scenario,given,when,then,priority,business-rule-ref,test}:
+  AC-01,Real PIN shows real balance,The demo is running with real PIN 1234,The user logs in with the real PIN and reads the balance,The real balance is returned (48750.32),must-have,BR-005,DuressFlowTest.normalSessionSeesRealBalance
+  AC-02,Duress PIN shows decoy balance,The demo is running with duress PIN 4321,The user logs in with the duress PIN and reads the balance,The decoy balance is returned (312.47),must-have,BR-005,DuressFlowTest.duressSessionSeesDecoyBalance
+  AC-03,Duress Pix is held,A duress session is open,The user sends a Pix within the decoy balance,Status is CONCLUIDO and the decoy balance drops and the real balance is unchanged and the Pix appears in the fraud desk view,must-have,BR-009,DuressFlowTest.duressPixLooksSuccessfulButIsHeld
+  AC-04,Decoy rejects Pix above balance like the real account,A duress session is open,The user sends a Pix above the decoy balance,It fails with the same status and message as the real account,must-have,BR-005,DuressFlowTest.decoyRejectsTransfersAboveDecoyBalanceLikeTheRealAccount
+  AC-05,Same response shape in both modes,A normal session and a duress session are open,Both read the balance,Balance responses have the same fields,must-have,BR-005,DuressFlowTest.responsesHaveTheSameShapeInBothModes
+  AC-06,Disabled starter keeps decoy hidden,decoy-guard.enabled=false,The application starts and a duress context calls a routed interface,The application starts and the call reaches the real bean,should-have,BR-010,DecoyRoutingTest.disabledPropertyStopsRoutingButKeepsDecoyHidden
+  AC-07,Two decoys fail startup,Two @Decoy beans implement the same interface,The context starts,The context fails to start,must-have,BR-007,DecoyRoutingTest.twoDecoysForTheSameInterfaceFailFast
+
+coverage[3]{requirements,test}:
+  AC-01 to AC-05,DuressFlowTest (demo)
+  AC-06 AC-07 FR-05 FR-06,DecoyRoutingTest (starter)
+  FR-01 to FR-03 NFR-02,InMemoryDuressSessionRegistryTest and DuressActivatorTest (core)
+
+assumptions[2]:
+  The legacy spec gave no priority per criterion. Priority follows the linked requirement (AC-06 links FR-10 which is should)
+  Business rule refs point to the BR that maps to the legacy FR the criterion exercises

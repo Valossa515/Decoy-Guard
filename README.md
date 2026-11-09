@@ -129,7 +129,8 @@ Repeat with PIN `1234` to see the real account (balance 48,750.32).
 ## Documentation
 
 * [Threat model](docs/threat-model.md): what this protects, what it does not, and why
-* [DG-001 Duress session routing](docs/specs/DG-001-duress-session-routing.md): first spec
+* [FT-001 Duress session routing](.agent/plans/duress-session-routing.md): first spec (plan), with its [feature spec](.agent/specs/features/duress-session-routing.spec.toon) and [acceptance criteria](.agent/specs/acceptance/duress-session-routing.acceptance.toon)
+* [Agent context](.agent/SKILLS.md): project context and conventions for AI coding agents, following [SDD](https://github.com/valossa515/sdd)
 
 ## Roadmap
 
