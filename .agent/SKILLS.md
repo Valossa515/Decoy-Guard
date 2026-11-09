@@ -137,6 +137,13 @@ io.github.valossa515.decoyguard
 - Feature ids use the SDD format `FT-NNN`. The legacy DG-001 spec is FT-001.
 - Write the spec and plan first, then code, then tests.
 
+### Git and pull requests (differs from builder.md, reviewer.md and the DoD)
+- Work branches start from `development`, never from `main`: `feature/ft-NNN-slug` for a feature, `fix/`, `refactor/`, `test/`, `docs/`, `chore/` or `ci/` plus a kebab-case slug for the rest. `hotfix/slug` starts from `main`.
+- Commit messages follow the full convention in `CONTRIBUTING.md`, not only the `feat`/`fix` of `builder.md`: types `feat fix test refactor docs ci build chore`, scopes `core starter demo spec ci docs deps release`, English, imperative, summary up to 72 characters, `Refs: FT-NNN` footer for feature work.
+- The reviewer diffs against `development` (`git diff development..HEAD`), not `main`.
+- PRs into `development` are squashed and the PR title must follow the commit convention. That satisfies DoD item 20 (single focused commit).
+- Fill in `.github/pull_request_template.md`. CI checks `build`, `specs`, `pr-title` and `branch-policy` must pass before merge.
+
 ### Custom rules
 - Money is `BigDecimal`. Time comes from an injected `Clock`.
 - Docs and README prose: plain sentences, no em dashes.

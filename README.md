@@ -162,6 +162,10 @@ The demo's real account simulates the hop to core banking (`demo.core-banking-la
 * [FT-003 Response time parity](.agent/plans/response-time-parity.md): plan, with its [feature spec](.agent/specs/features/response-time-parity.spec.toon), [acceptance criteria](.agent/specs/acceptance/response-time-parity.acceptance.toon), [contract](.agent/specs/contracts/response-time-parity.contract.toon) and [architecture notes](.agent/plans/response-time-parity-architecture.md)
 * [Agent context](.agent/SKILLS.md): project context and conventions for AI coding agents, following [SDD](https://github.com/valossa515/sdd)
 
+## Contributing
+
+New code goes to the `development` branch through a pull request. Branch names, commit messages and the PR flow are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Roadmap
 
 - [x] Core model, SPIs and in-memory defaults

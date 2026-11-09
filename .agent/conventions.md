@@ -67,6 +67,17 @@ docs/        threat-model.md
 - **Alert failures:** caught and logged inside `DuressActivator`, never propagated.
 - **Logging:** `System.Logger` in core (no dependency), commons-logging in the starter. Never log the mode in anything returned to the client. The default alert log contains trigger and time, not the session id.
 
+## Git
+- **Default branch:** `development`. `main` is the stable version and only receives release PRs and hotfixes.
+- **Branch names:** `feature/ft-NNN-slug`, `fix/slug`, `refactor/slug`, `test/slug`, `docs/slug`, `chore/slug`, `ci/slug`, `hotfix/slug`. Lowercase kebab-case, no accents (`feature/ft-004-pix-em-processamento`).
+- **Commits:** Conventional Commits in English, `<type>(<scope>): <summary>`, imperative, lowercase summary up to 72 characters, no final period.
+  - Types: `feat`, `fix`, `test`, `refactor`, `docs` (includes `.agent/` specs and plans), `ci`, `build`, `chore`.
+  - Scopes: `core`, `starter`, `demo`, `spec`, `ci`, `docs`, `deps`, `release`. Optional.
+  - Breaking change: `!` after the scope and a `BREAKING CHANGE:` footer.
+  - Examples: `feat(starter): shape decoy latency from learned real timings`, `docs(spec): add FT-004 acceptance criteria`.
+- **Merging:** squash into `development` (the PR title becomes the commit), merge commit from `development` into `main`.
+- Full rules in `CONTRIBUTING.md`.
+
 ## Docs
 - Prose in docs and README: plain sentences, no em dashes.
 - Update the roadmap checklist in `README.md` when an item ships.

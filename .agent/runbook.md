@@ -29,9 +29,24 @@ bash .agent/scripts/validate-spec.sh .agent/specs   # validate TOON specs
 ```
 
 ## Build and Release
-```bash
-mvn -B verify      # what CI runs on push to main and on pull requests (.github/workflows/ci.yml)
-```
+CI (`.github/workflows/ci.yml`) runs on push to `main` and `development` and on PRs into either. Jobs, which are also the required checks:
+
+| Job | What it runs | When |
+|-----|--------------|------|
+| `build` | `mvn -B verify` on Temurin 21, uploads Surefire reports on failure | Always |
+| `specs` | `bash .agent/scripts/validate-spec.sh .agent/specs` | Always |
+| `pr-title` | `.github/scripts/check-pr-title.sh` (Conventional Commits) | PRs |
+| `branch-policy` | `.github/scripts/check-branch-policy.sh` (branch name, only `development` or `hotfix/*` into `main`) | PRs |
+
+Release: PR from `development` to `main`, titled `chore(release): ...`, merged with a merge commit.
+Hotfix: `hotfix/slug` from `main`, PR to `main` (squash), then a PR from `main` to `development`.
+Dependabot (`.github/dependabot.yml`) opens weekly PRs for Maven and GitHub Actions against `development`.
+
+Repository settings, done by hand by the owner:
+- Default branch: `development`.
+- Pull requests: allow merge commits and squash merging, no rebase merging, always suggest updating branches, delete head branches automatically.
+- Rulesets: import `.github/rulesets/main.json` and `.github/rulesets/development.json` (Settings, Rules, Rulesets, Import a ruleset). Both require a PR, the CI checks above, an up to date branch and resolved conversations, and block force pushes and deletion. No bypass. Zero required approvals, because PRs opened by Claude Code are authored by the owner's account and GitHub does not let an author approve their own PR. `.github/CODEOWNERS` requests the owner's review on PRs opened by others (Dependabot, contributors). On PRs opened by Claude Code the owner is the author, so the review is the owner reading the PR before merging.
+
 - No migrations.
 - Not published yet. Maven Central under `io.github.valossa515` is on the roadmap.
 
