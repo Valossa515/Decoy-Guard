@@ -1,0 +1,58 @@
+name: Release
+
+# Run by hand from the Actions tab, on the main branch, after the release PR
+# from development has been merged. Builds the given version, creates the tag
+# vX.Y.Z on main and a GitHub Release with notes and the library jars.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, X.Y.Z (no "v" prefix)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check the branch, the version and the tag
+        env:
+          VERSION: ${{ inputs.version }}
+          REF: ${{ github.ref }}
+        run: bash .github/scripts/check-release.sh
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Set the release version (not committed)
+        env:
+          VERSION: ${{ inputs.version }}
+        run: mvn -B -q versions:set -DnewVersion="${VERSION}" -DgenerateBackupPoms=false
+      - name: Build and test
+        run: mvn -B verify
+      - name: Write the release notes
+        env:
+          VERSION: ${{ inputs.version }}
+        run: bash .github/scripts/release-notes.sh > release-notes.md
+      - name: Create the tag and the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v${VERSION}" \
+            --target "${GITHUB_SHA}" \
+            --title "v${VERSION}" \
+            --notes-file release-notes.md \
+            "decoy-guard-core/target/decoy-guard-core-${VERSION}.jar" \
+            "decoy-guard-spring-boot-starter/target/decoy-guard-spring-boot-starter-${VERSION}.jar"
