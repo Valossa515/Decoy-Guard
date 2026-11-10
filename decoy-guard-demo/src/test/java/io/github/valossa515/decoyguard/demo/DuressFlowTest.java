@@ -61,7 +61,7 @@ class DuressFlowTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"key\":\"golpista@exemplo.com\",\"amount\":200.00}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CONCLUIDO"))
+                .andExpect(jsonPath("$.status").value("EM_PROCESSAMENTO"))
                 .andExpect(jsonPath("$.endToEndId").isString());
 
         // The attacker sees the decoy balance drop...

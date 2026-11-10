@@ -13,7 +13,7 @@
 |------|--------|---------|
 | `SessionMode` | NORMAL (real data, real effects), DURESS (decoy data, effects held) | `DuressContext.mode` |
 | `ActivationTrigger` | DURESS_CREDENTIAL (duress PIN or biometric), RISK_SIGNAL (active call, screen mirroring, remote access app), MANUAL (operator or trusted contact) | `DuressContext.trigger`, `SilentAlert.trigger` |
-| Pix receipt status | `CONCLUIDO` | `PixReceipt.status`, same in both modes |
+| `PixStatus` (demo) | EM_PROCESSAMENTO (accepted, not settled yet. A held Pix stays here), CONCLUIDO (settled, real Pix only) | `PixReceipt.status`, same shape in both modes |
 
 ## Business Terms
 - **Coercion / duress:** the user is forced, by phone or in person, to use their own bank app.

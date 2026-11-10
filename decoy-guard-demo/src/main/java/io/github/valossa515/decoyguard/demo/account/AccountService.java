@@ -17,6 +17,18 @@ public interface AccountService {
 
     PixReceipt pix(PixRequest request);
 
+    /**
+     * The receipt of a Pix of this account with its current status.
+     *
+     * @throws PixNotFoundException when the account has no Pix with that id
+     */
+    PixReceipt findPix(String endToEndId);
+
+    enum PixStatus {
+        EM_PROCESSAMENTO,
+        CONCLUIDO
+    }
+
     record Balance(BigDecimal available) {
     }
 
@@ -26,6 +38,10 @@ public interface AccountService {
     record PixRequest(String key, BigDecimal amount) {
     }
 
-    record PixReceipt(String endToEndId, String key, BigDecimal amount, Instant at, String status) {
+    record PixReceipt(String endToEndId, String key, BigDecimal amount, Instant at, PixStatus status) {
+
+        public PixReceipt withStatus(PixStatus newStatus) {
+            return new PixReceipt(endToEndId, key, amount, at, newStatus);
+        }
     }
 }

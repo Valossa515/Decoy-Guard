@@ -11,3 +11,5 @@ demo:
   core-banking-latency:
     min: 120ms
     max: 350ms
+  # How long a real Pix stays "em processamento" before it settles. A held Pix never settles.
+  pix-settlement: 5s

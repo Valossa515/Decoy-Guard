@@ -1,0 +1,28 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/pix-em-processamento.acceptance.toon
+# Plan (human doc): .agent/plans/pix-em-processamento.md
+
+acceptance:
+  feature-ref: FT-004
+  version: 0.2.0-SNAPSHOT
+
+criteria[10]{id,scenario,given,when,then,priority,business-rule-ref,test}:
+  AC-01,Normal Pix starts in processing,A normal session is open,It sends a Pix within the balance,Returns 200 with a receipt whose status is EM_PROCESSAMENTO,must-have,BR-001,PixProcessingTest.normalPixStartsInProcessing
+  AC-02,Duress Pix starts in processing with the same shape,A duress session is open,It sends a Pix within the decoy balance,Returns 200 with status EM_PROCESSAMENTO and the same fields and headers as the normal receipt,must-have,BR-001,PixProcessingTest.duressPixStartsInProcessingWithTheSameFieldsAndHeaders
+  AC-03,Real Pix settles,A normal session sent a Pix,It consults the Pix before and after the settlement time has passed,The first consultation returns EM_PROCESSAMENTO and the later one returns CONCLUIDO,must-have,BR-003,PixProcessingTest.realPixSettlesAfterTheSettlementTime
+  AC-04,Held Pix stays in processing,A duress session sent a Pix,It consults the Pix after the settlement time has passed,The consultation still returns EM_PROCESSAMENTO,must-have,BR-004,PixProcessingTest.heldPixStaysInProcessingAfterTheSettlementTime
+  AC-05,Consultation matches the receipt,A normal and a duress session each sent a Pix,Each consults its own Pix,The consulted receipt has the same end to end id and key and amount and time as the original and the same fields in both sessions,must-have,BR-005,PixProcessingTest.consultationMatchesTheOriginalReceiptInBothSessions
+  AC-06,Unknown Pix looks the same in both modes,A normal and a duress session are open and each sent a Pix,Each consults an id that does not exist and the id of the Pix sent by the other session,Every consultation returns 404 with the same body,must-have,BR-006,PixProcessingTest.unknownAndOtherModeIdsReturnTheSame404InBothSessions
+  AC-07,Balance drops while in processing,A normal and a duress session are open,Each sends a Pix and reads the balance at once,Each balance is lower by the amount while the status is still EM_PROCESSAMENTO,must-have,BR-007,PixProcessingTest.balanceDropsWhileThePixIsInProcessing
+  AC-08,Held Pix stays held,A duress session sent a Pix that is in processing,The fraud desk is consulted and a normal session reads the balance,The held Pix is listed for the duress session and the real balance is unchanged,must-have,BR-008,PixProcessingTest.heldPixIsListedByTheFraudDeskAndRealBalanceIsUnchanged
+  AC-09,Consultation needs a session,No open session,GET /account/pix/{endToEndId} is called without a valid bearer token,Returns 401,must-have,BR-002,PixProcessingTest.consultationWithoutASessionReturns401
+  AC-10,Front end follows the status,The static page is served,The page and its script are read,The script has a label for EM_PROCESSAMENTO and consults /account/pix/ from the phone code and the phone template has no mode marker,should-have,BR-010,FrontEndTest.receiptFollowsThePixStatusFromThePhoneCode
+
+coverage[2]{requirements,test}:
+  AC-01 to AC-09,PixProcessingTest (demo MockMvc with a fake clock)
+  AC-10,FrontEndTest (demo MockMvc)
+
+assumptions[3]:
+  The test plan is .agent/plans/pix-em-processamento-tests.md
+  Settlement is advanced in tests through a fake Clock and never by waiting
+  BR-009 is covered by the settlement tests of AC-03 and AC-04 which set the property and by PixProcessingTest.negativeSettlementIsRejected

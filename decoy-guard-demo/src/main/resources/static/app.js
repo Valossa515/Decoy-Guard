@@ -18,7 +18,9 @@ const timeOnly = new Intl.DateTimeFormat('pt-BR', {
   hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: TIME_ZONE
 });
 
-const STATUS_LABELS = { CONCLUIDO: 'Concluído' };
+const STATUS_LABELS = { EM_PROCESSAMENTO: 'Em processamento', CONCLUIDO: 'Concluído' };
+const FINAL_STATUS = 'CONCLUIDO';
+const RECEIPT_POLL_MS = 2000;
 
 function formatMoney(value) {
   return money.format(Number(value));
@@ -47,7 +49,17 @@ function mountPhone(slot) {
 
   // --- navigation -------------------------------------------------------------------------
 
+  let receiptTimer = null;
+
+  function stopReceiptPolling() {
+    clearTimeout(receiptTimer);
+    receiptTimer = null;
+  }
+
   function show(name) {
+    if (name !== 'receipt') {
+      stopReceiptPolling();
+    }
     root.querySelectorAll('[data-screen]').forEach((screen) => {
       screen.hidden = screen.dataset.screen !== name;
     });
@@ -210,6 +222,46 @@ function mountPhone(slot) {
   });
   keyInput.addEventListener('input', renderAmount);
 
+  function renderReceipt(receipt) {
+    const processing = receipt.status !== FINAL_STATUS;
+    $('[data-screen="receipt"]').classList.toggle('processing', processing);
+    $('[data-receipt-icon]').textContent = processing ? '…' : '✓';
+    $('[data-receipt-amount]').textContent = formatMoney(receipt.amount);
+    $('[data-receipt-key]').textContent = receipt.key;
+    $('[data-receipt-at]').textContent = dateTime.format(new Date(receipt.at));
+    $('[data-receipt-status]').textContent = STATUS_LABELS[receipt.status] || receipt.status;
+    $('[data-receipt-id]').textContent = receipt.endToEndId;
+  }
+
+  // The receipt follows the Pix while it is on screen and the status is not final. A failed
+  // consultation is tried again, unless the session ended or the Pix does not exist.
+  function followReceipt(receipt) {
+    stopReceiptPolling();
+    if (receipt.status === FINAL_STATUS) {
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const latest = await api('/account/pix/' + encodeURIComponent(receipt.endToEndId));
+        if (receiptTimer !== timer) {
+          return;
+        }
+        renderReceipt(latest);
+        followReceipt(latest);
+      } catch (error) {
+        if (receiptTimer !== timer) {
+          return;
+        }
+        if (error.message === 'session' || error.status === 404) {
+          stopReceiptPolling();
+        } else {
+          followReceipt(receipt);
+        }
+      }
+    }, RECEIPT_POLL_MS);
+    receiptTimer = timer;
+  }
+
   $('[data-pix-form]').addEventListener('submit', async (event) => {
     event.preventDefault();
     const submit = $('[data-pix-submit]');
@@ -222,12 +274,9 @@ function mountPhone(slot) {
         method: 'POST',
         body: JSON.stringify({ key: keyInput.value.trim(), amount: (amountCents / 100).toFixed(2) })
       });
-      $('[data-receipt-amount]').textContent = formatMoney(receipt.amount);
-      $('[data-receipt-key]').textContent = receipt.key;
-      $('[data-receipt-at]').textContent = dateTime.format(new Date(receipt.at));
-      $('[data-receipt-status]').textContent = STATUS_LABELS[receipt.status] || receipt.status;
-      $('[data-receipt-id]').textContent = receipt.endToEndId;
+      renderReceipt(receipt);
       show('receipt');
+      followReceipt(receipt);
     } catch (error) {
       if (error.message !== 'session') {
         $('[data-pix-error]').textContent = error.message;

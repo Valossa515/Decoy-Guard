@@ -1,0 +1,97 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/pix-em-processamento.contract.toon
+# Feature: .agent/specs/features/pix-em-processamento.spec.toon (FT-004)
+# Decisions: .agent/plans/pix-em-processamento-architecture.md
+
+contract:
+  feature-ref: FT-004
+  version: 0.2.0-SNAPSHOT
+
+layers:
+  demo:
+    files[8]{path,action,description}:
+      decoy-guard-demo/src/main/java/io/github/valossa515/decoyguard/demo/account/AccountService.java,modify,New nested enum PixStatus (EM_PROCESSAMENTO and CONCLUIDO). PixReceipt.status becomes PixStatus and PixReceipt gets a withStatus copy helper (amendment 2026-11-10). New method PixReceipt findPix(String endToEndId)
+      decoy-guard-demo/src/main/java/io/github/valossa515/decoyguard/demo/account/PixNotFoundException.java,create,RuntimeException with message Pix não encontrado thrown by both implementations
+      decoy-guard-demo/src/main/java/io/github/valossa515/decoyguard/demo/account/RealAccountService.java,modify,pix returns EM_PROCESSAMENTO and stores the receipt by id under the existing lock. findPix makes one hop then returns the receipt with CONCLUIDO once clock.instant() is not before at plus demo.pix-settlement and throws PixNotFoundException for an unknown id. Settlement read with @Value and validated in the constructor
+      decoy-guard-demo/src/main/java/io/github/valossa515/decoyguard/demo/account/DecoyAccountService.java,modify,pix returns EM_PROCESSAMENTO and uses one clock instant for the held transaction and the receipt. findPix rebuilds the receipt from the held transactions of the current session always as EM_PROCESSAMENTO and throws PixNotFoundException when absent
+      decoy-guard-demo/src/main/java/io/github/valossa515/decoyguard/demo/account/AccountController.java,modify,GET /account/pix/{endToEndId} delegating to findPix and an ExceptionHandler mapping PixNotFoundException to 404 with the error map
+      decoy-guard-demo/src/main/resources/application.yml,modify,demo.pix-settlement 5s with a comment
+      decoy-guard-demo/src/main/resources/static/app.js,modify,Label for EM_PROCESSAMENTO. One receipt render function. Consultation of /account/pix/{id} every 2 seconds while the receipt is open and the status is not CONCLUIDO. Timer cleared on leaving the screen or logout or final status. A failed consultation is tried again unless the session ended or the answer is 404 (amendment 2026-11-10). All inside mountPhone
+      decoy-guard-demo/src/main/resources/static/styles.css,modify,Receipt look while in processing. index.html changes only if the icon needs a hook and never with a mode marker
+  tests:
+    files[3]{path,action,description}:
+      decoy-guard-demo/src/test/java/io/github/valossa515/decoyguard/demo/PixProcessingTest.java,create,MockMvc tests for AC-01 to AC-09 with a mutable Clock fake as a Primary bean in a TestConfiguration plus the negative settlement check (amendment 2026-11-10)
+      decoy-guard-demo/src/test/java/io/github/valossa515/decoyguard/demo/DuressFlowTest.java,modify,The duress Pix expects EM_PROCESSAMENTO instead of CONCLUIDO
+      decoy-guard-demo/src/test/java/io/github/valossa515/decoyguard/demo/FrontEndTest.java,modify,One test for AC-10
+  docs:
+    files[10]{path,action,description}:
+      README.md,modify,Walkthrough shows EM_PROCESSAMENTO and the consultation. Roadmap gets the item checked
+      docs/threat-model.md,modify,Receiving side limitation updated with the mitigation and what stays observable. Plausibility row updated
+      .agent/project-reference.md,modify,New method and enum and exception and endpoint and property
+      .agent/decisions.md,modify,ADR-013
+      .agent/context.md,modify,Held Pix flow says EM_PROCESSAMENTO and mentions the consultation (amendment 2026-11-10)
+      .agent/glossary.md,modify,PixStatus values replace the single CONCLUIDO status (amendment 2026-11-10)
+      .agent/plans/pix-em-processamento.md,modify,Status and links to contract and test plan and tasks checked
+      .agent/plans/pix-em-processamento-tests.md,create,Test plan
+      .agent/plans/duress-session-routing.md,modify,AC-03 wording says the status is EM_PROCESSAMENTO since FT-004
+      .agent/specs/acceptance/duress-session-routing.acceptance.toon,modify,AC-03 wording says the status is EM_PROCESSAMENTO since FT-004
+
+migrations[0]:
+
+dependencies:
+  uses[6]:
+    HeldTransactionStore.findBySession (existing core SPI)
+    DuressContextHolder (existing)
+    Clock bean from ClockConfiguration (existing)
+    CoreBankingLatency (existing)
+    EndToEndIds (existing)
+    SessionInterceptor on /account/** (existing)
+  introduces[0]:
+
+configuration[1]{property,type,default,notes}:
+  demo.pix-settlement,Duration,5s,Demo only. Must not be negative. Read by RealAccountService only
+
+endpoints[1]{method,path,success,errors}:
+  GET,/account/pix/{endToEndId},200 with PixReceipt (endToEndId and key and amount and at and status),404 error map Pix não encontrado and 401 without a session
+
+error-handling[4]{case,behavior}:
+  Unknown end to end id in the real service,One hop then PixNotFoundException mapped to 404 with the error map
+  Unknown end to end id in the decoy,PixNotFoundException mapped to the same 404. The latency shaper delays it like a failed real consultation
+  Id of a Pix of the other mode,Not found in both directions with the same 404
+  Negative demo.pix-settlement,Startup fails with IllegalArgumentException
+
+test-strategy:
+  unit-tests:
+  integration-tests:
+    - target: Demo account API (PixProcessingTest)
+      type: mockmvc
+      scenarios[10]:
+        normal-pix-starts-in-processing
+        duress-pix-starts-in-processing-with-the-same-fields-and-headers
+        real-pix-settles-after-the-settlement-time
+        held-pix-stays-in-processing-after-the-settlement-time
+        consultation-matches-the-original-receipt-in-both-sessions
+        unknown-and-other-mode-ids-return-the-same-404-in-both-sessions
+        balance-drops-while-the-pix-is-in-processing
+        held-pix-is-listed-by-the-fraud-desk-and-real-balance-is-unchanged
+        consultation-without-a-session-returns-401
+        negative-settlement-is-rejected
+    - target: Static front end (FrontEndTest)
+      type: mockmvc
+      scenarios[1]:
+        script-has-the-processing-label-and-consults-the-pix-from-the-phone-code
+    - target: Existing duress flow (DuressFlowTest)
+      type: mockmvc
+      scenarios[1]:
+        duress-pix-is-held-and-in-processing
+  excluded[3]{target,reason}:
+    PixStatus and PixNotFoundException,No logic
+    RealAccountService and DecoyAccountService in isolation,The project tests the demo through HTTP. The only exception is the constructor check of the settlement time
+    Receipt polling in a browser,No browser test in the build. Covered by the manual check done in review on 2026-11-10
+
+rules-check[5]{rule,how}:
+  Mode never observable by the client,Same status on the first receipt and same fields and same 404 and 401 in both modes. No header or cookie or log line added
+  Real and decoy share DTOs,One PixReceipt and one PixStatus and one PixNotFoundException. findPix is implemented in both with a parity test
+  Decoy beans never injectable,Untouched. The controller injects AccountService
+  Alert failures never fail the request,Untouched
+  New storage is an SPI,No new library storage. Receipts in RealAccountService are state of the fake core banking like its balance. The decoy reads the existing HeldTransactionStore

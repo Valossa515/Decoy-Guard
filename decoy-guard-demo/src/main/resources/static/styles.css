@@ -216,6 +216,8 @@ button:disabled { cursor: default; }
   margin-top: 26px; width: 72px; height: 72px; border-radius: 50%;
   display: grid; place-items: center; background: var(--brand); color: #fff; font-size: 36px; font-weight: 800;
 }
+.screen-receipt.processing .receipt-check { background: var(--accent); color: var(--app-text); }
+.screen-receipt.processing [data-receipt-status] { color: #8a6500; }
 .receipt-title { margin: 14px 0 2px; font-size: 18px; }
 .receipt-amount { margin: 0 0 18px; font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
 .receipt-details { width: 100%; margin: 0 0 20px; background: var(--app-surface); border-radius: var(--radius); padding: 4px 14px; text-align: left; }

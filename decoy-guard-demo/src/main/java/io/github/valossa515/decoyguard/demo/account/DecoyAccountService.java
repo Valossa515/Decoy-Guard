@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,12 +19,16 @@ import java.util.List;
  *
  * <p>The decoy balance goes down after each held transfer, because an attacker who checks
  * the balance after a "successful" Pix expects it to drop.
+ *
+ * <p>A held Pix stays {@code EM_PROCESSAMENTO} for good, like a real Pix stalled in anti-fraud
+ * review. That gives the attacker a reason for the money not having arrived.
  */
 @Decoy
 @Service
 public class DecoyAccountService implements AccountService {
 
     private static final BigDecimal DECOY_OPENING_BALANCE = new BigDecimal("312.47");
+    private static final String PIX = "PIX";
 
     private final HeldTransactionStore heldTransactions;
     private final Clock clock;
@@ -58,10 +63,24 @@ public class DecoyAccountService implements AccountService {
             throw new InsufficientFundsException();
         }
         String sessionId = DuressContextHolder.current().sessionId();
-        String endToEndId = EndToEndIds.next();
-        heldTransactions.hold(new HeldTransaction(endToEndId, sessionId, "PIX", request.amount(),
-                request.key(), clock.instant()));
-        return new PixReceipt(endToEndId, request.key(), request.amount(), clock.instant(), "CONCLUIDO");
+        Instant now = clock.instant();
+        HeldTransaction held = heldTransactions.hold(new HeldTransaction(EndToEndIds.next(), sessionId, PIX,
+                request.amount(), request.key(), now));
+        return receiptOf(held);
+    }
+
+    @Override
+    public PixReceipt findPix(String endToEndId) {
+        return heldForSession().stream()
+                .filter(held -> PIX.equals(held.type()) && held.id().equals(endToEndId))
+                .findFirst()
+                .map(DecoyAccountService::receiptOf)
+                .orElseThrow(PixNotFoundException::new);
+    }
+
+    private static PixReceipt receiptOf(HeldTransaction held) {
+        return new PixReceipt(held.id(), held.counterparty(), held.amount(), held.heldAt(),
+                PixStatus.EM_PROCESSAMENTO);
     }
 
     private List<HeldTransaction> heldForSession() {
