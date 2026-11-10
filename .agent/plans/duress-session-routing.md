@@ -113,7 +113,7 @@ None. Storage is behind SPIs with in-memory defaults.
 
 * [x] AC-01: Logging in with the real PIN and reading the balance returns the real balance.
 * [x] AC-02: Logging in with the duress PIN and reading the balance returns the decoy balance.
-* [x] AC-03: A Pix in a duress session returns status `CONCLUIDO`, lowers the decoy balance, leaves the real balance unchanged and appears in the fraud desk view.
+* [x] AC-03: A Pix in a duress session returns the same status as a real Pix (`EM_PROCESSAMENTO` since FT-004, `CONCLUIDO` before it), lowers the decoy balance, leaves the real balance unchanged and appears in the fraud desk view.
 * [x] AC-04: A Pix above the decoy balance fails with the same status and message as the real account.
 * [x] AC-05: Balance responses have the same fields in both modes.
 * [x] AC-06: With `decoy-guard.enabled=false`, the application starts and a duress context still reaches the real bean.

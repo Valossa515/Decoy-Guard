@@ -26,7 +26,7 @@ Give the user a way to **comply on screen without complying in reality**.
 1. The user registers a **duress PIN** (or a duress fingerprint) next to their normal one.
 2. Under coercion, they log in with it. The app looks and behaves exactly like a normal session.
 3. Behind the scenes the session is served by a **decoy**: a small, believable balance and history.
-4. Transfers show a normal receipt, but the money **never leaves the account**. The transaction is held for the fraud team.
+4. Transfers show a normal receipt, but the money **never leaves the account**. The transaction is held for the fraud team and stays "em processamento" on screen, like a real Pix stalled in anti-fraud review.
 5. A **silent alert** reaches the bank and, optionally, a trusted contact.
 
 ```mermaid
@@ -141,7 +141,10 @@ curl -s localhost:8080/account/balance -H "Authorization: Bearer $TOKEN"
 
 curl -s localhost:8080/account/pix -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"key":"golpista@exemplo.com","amount":200}'
-# {"endToEndId":"E...","status":"CONCLUIDO",...}   <- looks real, money never left
+# {"endToEndId":"E...","status":"EM_PROCESSAMENTO",...}   <- same receipt as a real Pix, money never left
+
+curl -s localhost:8080/account/pix/E... -H "Authorization: Bearer $TOKEN"
+# still EM_PROCESSAMENTO. A real Pix becomes CONCLUIDO after demo.pix-settlement (5s), a held one never does
 
 curl -s "localhost:8080/fraud-desk/held?session=$TOKEN"
 # the held Pix, visible to the bank
@@ -173,6 +176,7 @@ New code goes to the `development` branch through a pull request. Branch names, 
 - [x] Demo bank API with held Pix and fraud desk view
 - [x] Mobile-style web front end showing both sessions side by side
 - [x] Response time parity (decoy latency shaped like the real backend)
+- [x] Pix "em processamento": every receipt starts in processing, a held Pix never settles
 - [ ] Redis `DuressSessionRegistry` and JDBC `HeldTransactionStore`
 - [ ] Risk signals: active phone call, screen mirroring, remote access apps (Android module)
 - [ ] Trusted contact notification channel
@@ -180,7 +184,7 @@ New code goes to the `development` branch through a pull request. Branch names, 
 
 ## Em português
 
-Camada de segurança anti-coação para apps bancários. Quando a pessoa é obrigada a abrir o app na frente de um golpista, ela entra com uma senha de coação. O app parece normal, mas mostra um saldo falso e pequeno, os Pix aparecem como concluídos sem o dinheiro sair da conta, e o banco recebe um alerta silencioso. O objetivo é proteger principalmente pessoas idosas, que são as vítimas mais frequentes desse tipo de golpe.
+Camada de segurança anti-coação para apps bancários. Quando a pessoa é obrigada a abrir o app na frente de um golpista, ela entra com uma senha de coação. O app parece normal, mas mostra um saldo falso e pequeno, os Pix aparecem como enviados e ficam "em processamento" sem o dinheiro sair da conta, e o banco recebe um alerta silencioso. O objetivo é proteger principalmente pessoas idosas, que são as vítimas mais frequentes desse tipo de golpe.
 
 ## License
 

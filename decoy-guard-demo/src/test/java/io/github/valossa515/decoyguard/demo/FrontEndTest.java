@@ -43,6 +43,9 @@ class FrontEndTest {
     private static final Pattern TEMPLATE =
             Pattern.compile("<template id=\"phone-template\">(.*?)</template>", Pattern.DOTALL);
 
+    private static final Pattern MODE_MARKER =
+            Pattern.compile("(?iu)coa[cç][aã]o|duress|decoy|\\bnormal\\b|\\breal\\b|1234|4321");
+
     @Autowired
     MockMvc mvc;
 
@@ -83,8 +86,7 @@ class FrontEndTest {
         String html = fetch("/index.html");
         String template = phoneTemplate(html);
 
-        Pattern marker = Pattern.compile("(?iu)coa[cç][aã]o|duress|decoy|\\bnormal\\b|\\breal\\b|1234|4321");
-        assertThat(marker.matcher(template).find())
+        assertThat(MODE_MARKER.matcher(template).find())
                 .as("mode marker inside the phone template")
                 .isFalse();
 
@@ -109,7 +111,7 @@ class FrontEndTest {
             paths.add(literal.group(1));
         }
         assertThat(paths).containsExactlyInAnyOrder(
-                "/login", "/account/balance", "/account/statement", "/account/pix");
+                "/login", "/account/balance", "/account/statement", "/account/pix", "/account/pix/");
         assertThat(phoneCode).doesNotContainIgnoringCase("fraud").doesNotContainIgnoringCase("duress");
     }
 
@@ -137,6 +139,26 @@ class FrontEndTest {
                 .andExpect(jsonPath("$", hasSize(0)));
         mvc.perform(get("/fraud-desk/held").param("session", normal))
                 .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    /**
+     * FT-004 AC-10 (.agent/specs/acceptance/pix-em-processamento.acceptance.toon): the receipt
+     * follows the Pix from the phone code, and the phone still has no mode marker.
+     */
+    @Test
+    void receiptFollowsThePixStatusFromThePhoneCode() throws Exception {
+        String js = fetch("/app.js");
+        String phoneCode = js.substring(js.indexOf("function mountPhone(slot)"), js.indexOf("// --- fraud desk"));
+
+        assertThat(js).contains("EM_PROCESSAMENTO: 'Em processamento'").contains("CONCLUIDO: 'Concluído'");
+        assertThat(phoneCode).contains("api('/account/pix/' + encodeURIComponent(receipt.endToEndId))");
+        assertThat(phoneCode).doesNotContainIgnoringCase("fraud").doesNotContainIgnoringCase("duress");
+
+        String template = phoneTemplate(fetch("/index.html"));
+        assertThat(template).contains("data-receipt-status").contains("data-receipt-icon");
+        assertThat(MODE_MARKER.matcher(template).find())
+                .as("mode marker inside the phone template")
+                .isFalse();
     }
 
     /** AC-07 */

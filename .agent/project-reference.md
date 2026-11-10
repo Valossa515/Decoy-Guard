@@ -26,8 +26,9 @@ Elderly people in Brazil are coerced, by phone or in person, into opening their 
 1. Login with the real PIN opens a NORMAL session. Calls reach the real services.
 2. Login with the duress PIN opens a session that looks identical, switches it to DURESS and raises one silent alert.
 3. In a DURESS session every call on a routed interface reaches the `@Decoy` bean. A Pix returns a normal receipt, lowers the decoy balance and is stored as a `HeldTransaction`.
-4. The fraud desk reads the held transactions and the silent alert of a session.
-5. The web front end at `/` (FT-002) shows two identical phones and the fraud desk panel.
+4. Every Pix receipt starts as `EM_PROCESSAMENTO` (FT-004). A real Pix becomes `CONCLUIDO` after `demo.pix-settlement`. A held Pix stays in processing.
+5. The fraud desk reads the held transactions and the silent alert of a session.
+6. The web front end at `/` (FT-002) shows two identical phones and the fraud desk panel.
 
 ---
 
@@ -94,18 +95,19 @@ None yet. Every storage and delivery concern is an SPI with an in-memory or logg
 |-------|----------------|
 | `DemoApplication` | Spring Boot entry point. |
 | `ClockConfiguration` | `Clock` bean in `America/Sao_Paulo`. |
-| `account.AccountService` | Routed interface plus shared DTOs: `Balance`, `StatementEntry`, `PixRequest`, `PixReceipt`. |
-| `account.RealAccountService` | Real account, balance 48,750.32, mutates balance and statement on Pix. One simulated hop per call, two for an accepted Pix. |
+| `account.AccountService` | Routed interface (`balance`, `statement`, `pix`, `findPix`) plus shared DTOs: `Balance`, `StatementEntry`, `PixRequest`, `PixReceipt`, and the enum `PixStatus`. |
+| `account.RealAccountService` | Real account, balance 48,750.32, mutates balance and statement on Pix. One simulated hop per call, two for an accepted Pix. Keeps the receipts it issued and derives the status from the `Clock` and `demo.pix-settlement` when a Pix is consulted. |
 | `account.CoreBankingLatency` | Sleeps a random time inside `demo.core-banking-latency.min` and `max`. Gives the real service a response time for the decoy to match. |
-| `account.DecoyAccountService` | `@Decoy`. Balance 312.47 minus held Pix, decoy statement, Pix stored as `HeldTransaction`. |
+| `account.DecoyAccountService` | `@Decoy`. Balance 312.47 minus held Pix, decoy statement, Pix stored as `HeldTransaction`. `findPix` rebuilds the receipt from the held transactions of the session, always `EM_PROCESSAMENTO`. |
 | `account.EndToEndIds` | Pix-shaped ids (E + 31 alphanumerics), shared by real and decoy. |
 | `account.InsufficientFundsException` | "Saldo insuficiente", thrown by both implementations. |
-| `account.AccountController` | `/account` endpoints. Knows nothing about duress. Maps insufficient funds to 422. |
+| `account.PixNotFoundException` | "Pix não encontrado", thrown by both implementations. |
+| `account.AccountController` | `/account` endpoints. Knows nothing about duress. Maps insufficient funds to 422 and an unknown Pix to 404. |
 | `auth.AuthController` | `/login`. Same response for real and duress PIN. Activates duress on the duress PIN. |
 | `auth.DemoSessions` | Toy store of opaque UUID tokens. |
 | `auth.SessionInterceptor` | Rejects `/account/**` without an open session (401). |
 | `fraud.FraudDeskController` | `/fraud-desk/held` and `/fraud-desk/alerts`, stand-in for the bank back office. |
-| `static/index.html`, `app.js`, `styles.css` | FT-002 front end. One phone `<template>` and one `mountPhone(slot)` for both phones, plus the fraud desk poller. |
+| `static/index.html`, `app.js`, `styles.css` | FT-002 front end. One phone `<template>` and one `mountPhone(slot)` for both phones, plus the fraud desk poller. The receipt consults the Pix every 2 seconds until it is `CONCLUIDO` (FT-004). |
 
 ---
 
@@ -116,7 +118,8 @@ None yet. Every storage and delivery concern is an SPI with an in-memory or logg
 | POST | `/login` | `AuthController` | Body `{"pin"}`. Returns `{"token"}`. 401 on wrong PIN. | No |
 | GET | `/account/balance` | `AccountController` | `{"available"}` | Bearer |
 | GET | `/account/statement` | `AccountController` | List of `{date, description, amount}` | Bearer |
-| POST | `/account/pix` | `AccountController` | Body `{key, amount}`. Returns `{endToEndId, key, amount, at, status}`. 422 `{"error":"Saldo insuficiente"}`. | Bearer |
+| POST | `/account/pix` | `AccountController` | Body `{key, amount}`. Returns `{endToEndId, key, amount, at, status}` with status `EM_PROCESSAMENTO`. 422 `{"error":"Saldo insuficiente"}`. | Bearer |
+| GET | `/account/pix/{endToEndId}` | `AccountController` | Same receipt with the current status. 404 `{"error":"Pix não encontrado"}`. | Bearer |
 | GET | `/fraud-desk/held?session=` | `FraudDeskController` | Held transactions of a session (back office stand-in). | No (demo only) |
 | GET | `/fraud-desk/alerts?session=` | `FraudDeskController` | Zero or one `SilentAlert` rebuilt from the registry (back office stand-in). | No (demo only) |
 | GET | `/` | static | FT-002 front end (`index.html`). | No |
@@ -134,6 +137,7 @@ No database. State lives behind the SPIs (`DuressSessionRegistry`, `HeldTransact
 | `SessionMode` | `NORMAL`, `DURESS` | `DuressContext.mode` |
 | `ActivationTrigger` | `DURESS_CREDENTIAL`, `RISK_SIGNAL`, `MANUAL` | `DuressContext.trigger`, `SilentAlert.trigger` |
 | `CallOutcome` | `RETURNED`, `THREW` | `LatencyProfile` keys |
+| `PixStatus` (demo) | `EM_PROCESSAMENTO`, `CONCLUIDO` | `PixReceipt.status`, same values in both modes |
 
 ---
 
@@ -189,4 +193,4 @@ Branches, commits and PRs: see `CONTRIBUTING.md`. New code goes to `development`
 
 ---
 
-*Last updated: 2026-11-09*
+*Last updated: 2026-11-10*

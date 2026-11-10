@@ -28,7 +28,7 @@ In Brazil, elderly people are a frequent target of scams where the victim is coe
 1. **Normal login:** `POST /login` with the real PIN returns a token. Calls reach the real services.
 2. **Duress login:** `POST /login` with the duress PIN returns a token with the same shape. `DuressActivator` switches the session to DURESS and publishes one `SilentAlert`.
 3. **Routed call:** `DuressContextFilter` resolves the mode per request. The routing proxy sends calls on a routed interface to the `@Decoy` bean while the session is DURESS.
-4. **Held Pix:** in DURESS, `POST /account/pix` returns status `CONCLUIDO`, lowers the decoy balance and stores a `HeldTransaction`. The real account is never touched.
+4. **Held Pix:** in DURESS, `POST /account/pix` returns status `EM_PROCESSAMENTO` like a real Pix, lowers the decoy balance and stores a `HeldTransaction`. The real account is never touched. `GET /account/pix/{endToEndId}` shows a real Pix as `CONCLUIDO` after the settlement time and a held Pix as `EM_PROCESSAMENTO` for good (FT-004).
 5. **Fraud desk review:** `GET /fraud-desk/held?session=` lists held transactions of a session.
 
 ## Available Endpoints

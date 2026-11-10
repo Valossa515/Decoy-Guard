@@ -1,0 +1,97 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/pix-em-processamento.spec.toon
+# Plan (human doc): .agent/plans/pix-em-processamento.md
+# Acceptance: .agent/specs/acceptance/pix-em-processamento.acceptance.toon
+
+feature:
+  id: FT-004
+  name: Pix em processamento
+  version: 0.2.0-SNAPSHOT
+  status: implemented
+  owner: Felipe Martins
+
+modules[1]: decoy-guard-demo
+
+stack:
+  java: 21
+  spring_boot: 4.1.2
+  build: maven
+
+requirement:
+  summary: A held Pix shows as concluded and never arrives so an attacker with a partner watching the destination account notices. Every Pix receipt now starts as EM_PROCESSAMENTO in both sessions. In a NORMAL session the Pix settles after a short time and becomes CONCLUIDO. In a DURESS session the held Pix stays EM_PROCESSAMENTO like a real Pix stalled in anti-fraud review. The app can consult a Pix after the receipt through the same routed interface in both sessions.
+  actor: Account holder under coercion whose screen is watched by the attacker and a regular account holder in a normal session
+  trigger: POST /account/pix and GET /account/pix/{endToEndId}
+
+goals[4]:
+  A held Pix has a believable reason for not arriving at the destination
+  The first receipt is identical in both sessions
+  The status of a Pix can be consulted later through the routed interface in both sessions
+  The demo front end shows the status and follows it with the same code on both phones
+
+non-goals[6]:
+  A held Pix that later concludes or is returned
+  A real Pix that stalls or is refused by anti-fraud
+  Showing the status in the statement
+  A list of the Pix sent by the session
+  Changes to decoy-guard-core or to the starter
+  Changes to the fraud desk
+
+inputs[4]{name,type,required,constraints}:
+  key,string,true,Body of POST /account/pix. Unchanged
+  amount,BigDecimal,true,Body of POST /account/pix. Unchanged
+  endToEndId,string,true,Path variable of GET /account/pix/{endToEndId}. Id of a Pix sent by the account in the current mode
+  demo.pix-settlement,Duration,false,Time a real Pix stays in processing. Defaults to 5s. Must not be negative
+
+outputs:
+  success:
+    description: POST /account/pix returns the receipt with status EM_PROCESSAMENTO in both modes. GET /account/pix/{endToEndId} returns the same receipt shape with the current status. No field or header or cookie is added.
+    status: 200
+    body[5]{name,type,value}:
+      endToEndId,string,E plus 31 alphanumerics
+      key,string,
+      amount,BigDecimal,
+      at,Instant,Time the Pix was sent
+      status,string,EM_PROCESSAMENTO or CONCLUIDO
+  errors[3]{code,status,when}:
+    PIX_NOT_FOUND,404,The consulted id is not a Pix of the account in the current mode. Same status and body in both modes
+    INSUFFICIENT_FUNDS,422,Pix above the available balance. Unchanged
+    UNAUTHORIZED,401,No open session on /account. Unchanged
+
+business-rules[10]{id,source,priority,rule}:
+  BR-001,FR-01,must,An accepted Pix returns a receipt with status EM_PROCESSAMENTO in both modes
+  BR-002,FR-02,must,The routed interface has a Pix consultation by end to end id exposed as GET /account/pix/{endToEndId} that returns the same receipt shape as POST /account/pix
+  BR-003,FR-03,must,In a NORMAL session the consultation returns EM_PROCESSAMENTO until the settlement time has passed since the Pix was sent and CONCLUIDO from then on
+  BR-004,FR-04,must,In a DURESS session the consultation of a held Pix always returns EM_PROCESSAMENTO
+  BR-005,FR-05,must,Apart from the status a consulted receipt has the same end to end id and key and amount and time as the receipt returned when the Pix was sent
+  BR-006,FR-06,must,Consulting an id the session does not have fails with 404 and the same body in both modes
+  BR-007,FR-07,must,The balance is debited when the Pix is accepted in both modes whatever the status
+  BR-008,FR-08,must,The fraud desk still lists the held Pix and a held Pix never reaches the real account
+  BR-009,FR-09,should,The settlement time of the real Pix is configurable in the demo (default 5 seconds)
+  BR-010,FR-10,should,The receipt screen shows Em processamento and consults the Pix periodically while it is open and the status is not final with the same code on both phones
+
+non-functional[5]{id,requirement}:
+  NFR-01,No new header or field or cookie or error distinguishes the modes. The receipt and the consultation have the same fields in both sessions
+  NFR-02,The new method is implemented in the real and the decoy service and has a parity test in the demo
+  NFR-03,The controller keeps depending only on the routed interface
+  NFR-04,Settlement uses the injected Clock. Tests do not wait for real settlement
+  NFR-05,The front end code inside the phone has no mode marker and no per-phone parameter
+
+rules[4]:
+  Never expose the session mode to the client
+  Real and decoy must share DTOs and exceptions and id formats
+  Routed services are injected by interface and never by concrete class
+  Every new storage or delivery concern is an SPI in core with an in-memory default
+
+assumptions[9]:
+  Every Pix starts in processing in both modes. Chosen by Felipe on 2026-11-10 over a value threshold and over a decoy-only status
+  The held Pix stays in processing and never concludes or returns. Chosen by Felipe on 2026-11-10
+  The status is consulted through a new method of the routed interface. Chosen by Felipe on 2026-11-10 over a status in the statement
+  The balance is debited at once in both modes as today
+  The PIX_NOT_FOUND body follows the demo error format and its message is defined in the contract
+  A duress session does not see real Pix and a normal session does not see held Pix like the statement
+  The new consultation is a routed call so FT-003 shapes its response time without library changes
+  The state of a real Pix is state of the demo fake bank and not a library storage concern so no new SPI is expected. The architect confirms
+  The README GIF is not recorded again in this feature
+
+batches[1]{id,scope,estimate}:
+  BATCH-01,Status and consultation in the demo plus front end polling and tests and docs,1 day
